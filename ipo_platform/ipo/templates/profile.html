@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Investor Strategy - IPO Platform{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="mb-4">
+            <h1 class="h4 fw-bold mb-0">Investor Strategy Setup</h1>
+            <p class="text-muted x-small mt-1">Define your risk profile and AI recommendation parameters.</p>
+        </div>
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <form method="post">
+                    {% csrf_token %}
+                    {% if messages %}
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} py-2 small">{{ message }}</div>
+                    {% endfor %}
+                    {% endif %}
+
+                    <h6 class="fw-bold x-small text-uppercase text-muted mb-3">Investment Persona</h6>
+                    <div class="row g-3 mb-4">
+                        {% for val, label in profile.PERSONA_CHOICES %}
+                        <div class="col-md-4">
+                            <input type="radio" class="btn-check" name="persona" id="persona_{{ val }}"
+                                   value="{{ val }}" {% if profile.persona == val %}checked{% endif %}>
+                            <label class="btn btn-outline-primary w-100 text-start p-3" for="persona_{{ val }}"
+                                   style="border-radius:8px; font-size:0.85rem;">
+                                <div class="fw-bold mb-1">{{ label }}</div>
+                                <div class="x-small text-muted">
+                                    {% if val == 'conservative' %}Capital preservation, low risk
+                                    {% elif val == 'moderate' %}Balanced growth and safety
+                                    {% elif val == 'aggressive' %}High growth, high risk tolerance
+                                    {% elif val == 'value' %}Undervalued opportunities
+                                    {% elif val == 'growth' %}High-growth sectors
+                                    {% else %}Diversified approach{% endif %}
+                                </div>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <h6 class="fw-bold x-small text-uppercase text-muted mb-3">Investment Horizon</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <input type="radio" class="btn-check" name="investment_horizon" id="horizon_short"
+                                   value="short" {% if profile.investment_horizon == 'short' %}checked{% endif %}>
+                            <label class="btn btn-outline-secondary w-100 text-start p-3" for="horizon_short" style="border-radius:8px; font-size:0.85rem;">
+                                <div class="fw-bold mb-1">Short-term</div>
+                                <div class="x-small text-muted">Under 1 year</div>
+                            </label>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="radio" class="btn-check" name="investment_horizon" id="horizon_medium"
+                                   value="medium" {% if profile.investment_horizon == 'medium' or not profile.investment_horizon %}checked{% endif %}>
+                            <label class="btn btn-outline-secondary w-100 text-start p-3" for="horizon_medium" style="border-radius:8px; font-size:0.85rem;">
+                                <div class="fw-bold mb-1">Medium-term</div>
+                                <div class="x-small text-muted">1–3 years</div>
+                            </label>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="radio" class="btn-check" name="investment_horizon" id="horizon_long"
+                                   value="long" {% if profile.investment_horizon == 'long' %}checked{% endif %}>
+                            <label class="btn btn-outline-secondary w-100 text-start p-3" for="horizon_long" style="border-radius:8px; font-size:0.85rem;">
+                                <div class="fw-bold mb-1">Long-term</div>
+                                <div class="x-small text-muted">3+ years</div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold x-small text-uppercase text-muted mb-3">Risk Tolerance</h6>
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between x-small text-muted mb-1">
+                            <span>Conservative</span>
+                            <span id="riskLabel" class="fw-bold text-primary">{{ profile.risk_tolerance }}/10</span>
+                            <span>Aggressive</span>
+                        </div>
+                        <input type="range" class="form-range" min="1" max="10" step="1"
+                               name="risk_tolerance" id="riskSlider"
+                               value="{{ profile.risk_tolerance|default:5 }}">
+                    </div>
+
+                    <h6 class="fw-bold x-small text-uppercase text-muted mb-3">Capital Range</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label x-small fw-600">Minimum Investment (₹)</label>
+                            <input type="number" class="form-control form-control-sm" name="min_investment"
+                                   value="{{ profile.min_investment|floatformat:0 }}" min="10000" step="10000">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label x-small fw-600">Maximum Investment (₹)</label>
+                            <input type="number" class="form-control form-control-sm" name="max_investment"
+                                   value="{{ profile.max_investment|floatformat:0 }}" min="10000" step="10000">
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary fw-600">
+                            <i class="fas fa-save me-2"></i>Save Strategy
+                        </button>
+                        <a href="{% url 'dashboard' %}" class="btn btn-light border fw-600">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    const slider = document.getElementById('riskSlider');
+    const label = document.getElementById('riskLabel');
+    slider.addEventListener('input', () => { label.textContent = slider.value + '/10'; });
+</script>
+{% endblock %}

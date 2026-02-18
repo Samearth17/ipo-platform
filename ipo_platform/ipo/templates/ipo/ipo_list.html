@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Explore IPO Market - IPO Platform{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 fw-bold mb-0">IPO Market Directory</h1>
+        <p class="text-muted x-small mb-0 mt-1">Analyze current, upcoming, and historical listings.</p>
+    </div>
+    <span class="badge bg-light text-dark border px-3 py-2">{{ total_count }} Companies</span>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label x-small fw-600 text-uppercase mb-1">Search</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" class="form-control border-start-0" placeholder="Company, sector…" name="search" value="{{ search }}">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label x-small fw-600 text-uppercase mb-1">Status</label>
+                <select class="form-select form-select-sm" name="status">
+                    <option value="">All</option>
+                    <option value="UPCOMING" {% if status == 'UPCOMING' %}selected{% endif %}>Upcoming</option>
+                    <option value="ONGOING" {% if status == 'ONGOING' %}selected{% endif %}>Ongoing</option>
+                    <option value="LISTED" {% if status == 'LISTED' %}selected{% endif %}>Listed</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label x-small fw-600 text-uppercase mb-1">Sector</label>
+                <select class="form-select form-select-sm" name="sector">
+                    <option value="">All Sectors</option>
+                    {% for sec in sectors %}
+                    <option value="{{ sec }}" {% if sector == sec %}selected{% endif %}>{{ sec }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label x-small fw-600 text-uppercase mb-1">Sort By</label>
+                <select class="form-select form-select-sm" name="sort">
+                    <option value="-open_date" {% if sort == '-open_date' %}selected{% endif %}>Newest</option>
+                    <option value="-issue_size" {% if sort == '-issue_size' %}selected{% endif %}>Largest Issue</option>
+                    <option value="company_name" {% if sort == 'company_name' %}selected{% endif %}>A–Z</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100 fw-600">Apply</button>
+                    <a href="{% url 'ipo_list' %}" class="btn btn-light btn-sm border" title="Reset"><i class="fas fa-undo"></i></a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- IPO Cards -->
+<div class="row g-3">
+    {% for ipo in ipos %}
+    <div class="col-lg-4 col-md-6">
+        <div class="card h-100 hover-lift" style="border-left: 3px solid {% if ipo.status == 'UPCOMING' %}#0e6fa3{% elif ipo.status == 'ONGOING' %}#b45309{% else %}#1e6e3e{% endif %};">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="badge bg-{% if ipo.status == 'UPCOMING' %}info{% elif ipo.status == 'ONGOING' %}warning{% else %}success{% endif %}">
+                        {{ ipo.get_status_display }}
+                    </span>
+                    <small class="text-muted fw-600 x-small text-uppercase">{{ ipo.sector|truncatechars:18 }}</small>
+                </div>
+                <h6 class="fw-bold text-primary mb-1">{{ ipo.company_name }}</h6>
+                <p class="x-small text-muted mb-3">{{ ipo.lead_manager|truncatechars:35 }}</p>
+                <div class="bg-light rounded p-2 mb-3">
+                    <div class="row g-0">
+                        <div class="col-6 mb-2">
+                            <small class="text-muted d-block x-small">Issue Size</small>
+                            <span class="fw-600 small">₹{{ ipo.issue_size|floatformat:0 }} Cr</span>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <small class="text-muted d-block x-small">Lot Size</small>
+                            <span class="fw-600 small">{{ ipo.lot_size|default:"—" }} Shares</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block x-small">Price Band</small>
+                            <span class="fw-600 small">
+                                {% if ipo.price_band_lower and ipo.price_band_upper %}
+                                    ₹{{ ipo.price_band_lower }} – {{ ipo.price_band_upper }}
+                                {% else %}
+                                    {{ ipo.price_band|default:"—" }}
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block x-small">Listing Date</small>
+                            <span class="fw-600 small text-info">{{ ipo.listing_date|date:"d M Y"|default:"TBA" }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted x-small">Opens: {{ ipo.open_date|date:"d M" }}</small>
+                    <a href="{% url 'ipo_detail' ipo.id %}" class="btn btn-outline-primary btn-sm px-3 fw-600 x-small">Analyze &rarr;</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 py-5 text-center">
+        <div class="p-5 bg-white rounded shadow-sm">
+            <i class="fas fa-search fs-1 text-muted mb-3 opacity-25"></i>
+            <h5 class="fw-bold">No Records Found</h5>
+            <p class="text-muted">No IPOs matched your search criteria.</p>
+            <a href="{% url 'ipo_list' %}" class="btn btn-primary px-4 fw-600">Reset Filters</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

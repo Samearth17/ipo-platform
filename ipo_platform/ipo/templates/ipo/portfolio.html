@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}My Growth Portfolio - IPO Platform{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 fw-bold mb-1">Optimized Growth Portfolio</h1>
+        <p class="text-muted small">AI-Modeled allocation strategy for the <b>{{ profile.get_persona_display }}</b>
+            persona.</p>
+    </div>
+    {% if portfolio %}
+    <div class="d-flex gap-2">
+        <a href="{% url 'risk_dashboard' %}" class="btn btn-sm btn-outline-success fw-bold px-3">Risk Matrix</a>
+        <a href="{% url 'generate_portfolio' %}" class="btn btn-sm btn-primary fw-bold px-3">Regenerate Allocation</a>
+    </div>
+    {% endif %}
+</div>
+{% if portfolio %}
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card border-top border-primary border-4 h-100">
+            <small class="text-muted x-small text-uppercase fw-600 d-block mb-1">Annualized Return</small>
+            <div class="h4 mb-0 fw-bold text-primary">{{ portfolio.expected_return|floatformat:1 }}%</div>
+            <small class="text-success x-small fw-bold">PROJECTION</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card border-top border-danger border-4 h-100">
+            <small class="text-muted x-small text-uppercase fw-600 d-block mb-1">Portfolio Variance</small>
+            <div class="h4 mb-0 fw-bold text-danger">{{ portfolio.portfolio_risk|floatformat:1 }}%</div>
+            <small class="text-muted x-small">HISTORICAL VOL</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card border-top border-success border-4 h-100">
+            <small class="text-muted x-small text-uppercase fw-600 d-block mb-1">Diversity Score</small>
+            <div class="h4 mb-0 fw-bold text-success">{{ portfolio.diversification_score|floatformat:0 }}%</div>
+            <small class="text-muted x-small">SECTOR MIX</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card border-top border-dark border-4 h-100">
+            <small class="text-muted x-small text-uppercase fw-600 d-block mb-1">Total Allocation</small>
+            <div class="h4 mb-0 fw-bold">₹{{ portfolio.total_allocation|floatformat:0|intcomma }}</div>
+            <small class="text-muted x-small">CAPITAL DEPLOYED</small>
+        </div>
+    </div>
+</div>
+<div class="row mb-4">
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-bottom-0 pt-4 px-4">Portfolio Component Weights</div>
+            <div class="card-body p-4 text-center">
+                <canvas id="sectorChart" style="max-height: 280px;"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-bottom-0 pt-4 px-4">Stress Simulation</div>
+            <div class="card-body p-4">
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between x-small mb-2">
+                        <span>Return Efficiency Index</span>
+                        <span class="fw-bold">{{ portfolio.expected_return|add:5|floatformat:0 }}% Target</span>
+                    </div>
+                    <div class="progress" style="height: 10px; border-radius: 5px; background: #eaedf2;">
+                        <div class="progress-bar bg-primary" role="progressbar"
+                            style="width: {{ portfolio.expected_return|add:10 }}%; border-radius: 5px;"></div>
+                    </div>
+                </div>
+                <h6 class="x-small fw-bold text-uppercase text-muted mb-3">Model Scenarios</h6>
+                {% for scenario, result in stress_results.items %}
+                <div class="mb-3 p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
+                    <div class="x-small fw-600">{{ scenario }}</div>
+                    <div
+                        class="small fw-bold {% if result.portfolio_impact < 0 %}text-danger{% else %}text-success{% endif %}">
+                        {{ result.portfolio_impact|floatformat:1 }}% Impact
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted small">No stress test data available.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+        <span>Holdings Composition</span>
+        <span class="badge bg-secondary px-3 py-2 x-small">{{ total_count|default:0 }} Active Positions</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 small">
+            <thead class="bg-light">
+                <tr>
+                    <th class="ps-4 py-3 border-0">Asset / Company</th>
+                    <th class="py-3 border-0">Primary Sector</th>
+                    <th class="py-3 border-0 text-end">Allocation (₹)</th>
+                    <th class="py-3 border-0 text-end">Portfolio Weight</th>
+                    <th class="pe-4 py-3 border-0 text-end">Security Analysis</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in recommendations %}
+                <tr>
+                    <td class="ps-4 fw-600 text-dark">{{ rec.ipo.company_name }}</td>
+                    <td><span class="text-muted">{{ rec.ipo.sector|truncatechars:20 }}</span></td>
+                    <td class="text-end fw-600">₹{{ rec.allocated_amount|floatformat:0|intcomma }}</td>
+                    <td class="text-end">
+                        <div class="fw-bold text-primary">{% widthratio rec.weight 1 100 %}%</div>
+                        <div class="progress mt-1 ms-auto" style="height: 2px; width: 60px;">
+                            <div class="progress-bar" style="width: {% widthratio rec.weight 1 100 %}%"></div>
+                        </div>
+                    </td>
+                    <td class="pe-4 text-end">
+                        <a href="{% url 'ipo_detail' rec.ipo.id %}"
+                            class="btn btn-sm btn-link text-decoration-none p-0 fw-bold">Report &rarr;</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm p-5 text-center my-5">
+    <div class="mb-3"><i class="fas fa-wallet fs-1 text-muted opacity-25"></i></div>
+    <h4 class="fw-bold">No Strategic Allocation Detected</h4>
+    <p class="text-muted mx-auto" style="max-width: 400px;">Our AI engine requires you to initiate a portfolio
+        generation session based on your current investor strategy settings.</p>
+    <div class="mt-4"><a href="{% url 'generate_portfolio' %}"
+            class="btn btn-primary px-5 py-2 fw-bold shadow-sm">Initialize Portfolio Creation</a></div>
+</div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% if portfolio %}
+        const ctx = document.getElementById("sectorChart");
+        if (ctx) {
+            new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels: [{% for rec in recommendations %}"{{ rec.ipo.company_name|escapejs }}",{% endfor %}],
+                    datasets: [{
+                        data: [{% for rec in recommendations %}{% widthratio rec.weight 1 100 %},{% endfor %}],
+                        backgroundColor: ["#1a3a6b","#2451a0","#2196f3","#03a9f4","#00bcd4","#009688","#4caf50","#8bc34a","#cddc39","#ffeb3b"],
+                        borderWidth: 2,
+                        borderColor: "#ffffff"
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "70%",
+                    plugins: {
+                        legend: {
+                            position: "right",
+                            labels: { boxWidth: 10, font: { size: 10, family: "Inter" }, padding: 15 }
+                        }
+                    }
+                }
+            });
+        }
+        {% endif %}
+    });
+</script>
+{% endblock %}

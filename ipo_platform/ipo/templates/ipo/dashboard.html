@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Dashboard - IPO Platform{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 fw-bold mb-0">Market Dashboard</h1>
+        <p class="text-muted x-small mb-0 mt-1">Welcome back, <strong>{{ user.first_name|default:user.username }}</strong>
+            {% if profile %}&nbsp;&mdash;&nbsp;<span class="text-primary">{{ profile.get_persona_display }} Strategy</span>{% endif %}
+        </p>
+    </div>
+    <a href="{% url 'create_profile' %}" class="btn btn-sm btn-outline-primary fw-600">
+        <i class="fas fa-sliders-h me-1"></i> Settings
+    </a>
+</div>
+
+<!-- Market Indices -->
+<div class="row g-3 mb-3">
+    {% for index in market_indices %}
+    <div class="col-6 col-md-3">
+        <div class="card stat-card mb-0 h-100 hover-lift">
+            <div class="text-muted x-small text-uppercase fw-600 mb-1">{{ index.name }}</div>
+            <div class="stat-value" style="font-size: 1.2rem;">{{ index.value|floatformat:0|intcomma }}</div>
+            <div class="x-small fw-600 {% if index.change > 0 %}text-success{% else %}text-danger{% endif %}">
+                {% if index.change > 0 %}+{% endif %}{{ index.change|floatformat:2 }}%
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-6 col-md-3">
+        <div class="card stat-card mb-0"><div class="text-muted x-small text-uppercase fw-600 mb-1">NIFTY 50</div><div class="stat-value" style="font-size:1.2rem;">22,450</div><div class="x-small text-success fw-600">+0.85%</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card mb-0"><div class="text-muted x-small text-uppercase fw-600 mb-1">SENSEX</div><div class="stat-value" style="font-size:1.2rem;">73,800</div><div class="x-small text-success fw-600">+0.72%</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card mb-0"><div class="text-muted x-small text-uppercase fw-600 mb-1">NIFTY Bank</div><div class="stat-value" style="font-size:1.2rem;">48,200</div><div class="x-small text-danger fw-600">-0.35%</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card mb-0"><div class="text-muted x-small text-uppercase fw-600 mb-1">NIFTY IT</div><div class="stat-value" style="font-size:1.2rem;">36,100</div><div class="x-small text-success fw-600">+1.12%</div></div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- IPO Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card stat-card border-start border-primary border-3 mb-0 h-100" style="border-radius:8px;">
+            <div class="text-muted x-small text-uppercase fw-600 mb-1">Total IPOs</div>
+            <div class="stat-value">{{ stats.total_ipos|default:0 }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card border-start border-success border-3 mb-0 h-100" style="border-radius:8px;">
+            <div class="text-muted x-small text-uppercase fw-600 mb-1">Listed</div>
+            <div class="stat-value text-success">{{ stats.listed_ipos|default:0 }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card border-start border-info border-3 mb-0 h-100" style="border-radius:8px;">
+            <div class="text-muted x-small text-uppercase fw-600 mb-1">Upcoming</div>
+            <div class="stat-value" style="color:var(--info);">{{ stats.upcoming_ipos|default:0 }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card border-start border-warning border-3 mb-0 h-100" style="border-radius:8px;">
+            <div class="text-muted x-small text-uppercase fw-600 mb-1">AI Picks</div>
+            <div class="stat-value" style="color:var(--warning);">{{ stats.recommendations_count|default:0 }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left column -->
+    <div class="col-lg-8">
+        <!-- Sector Intelligence -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Sector Intelligence</span>
+                <a href="{% url 'sentiment_dashboard' %}" class="btn btn-sm btn-outline-secondary py-0 x-small">Full View</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-3">Sector</th>
+                                <th>Avg Score</th>
+                                <th>Performance</th>
+                                <th class="pe-3 text-end">Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sector in sector_performance %}
+                            <tr>
+                                <td class="ps-3 fw-600 text-primary">{{ sector.name }}</td>
+                                <td>{{ sector.avg_score|default:75 }}%</td>
+                                <td>
+                                    <div class="progress" style="height:5px;width:90px;">
+                                        <div class="progress-bar" style="width:{{ sector.performance|default:70 }}%"></div>
+                                    </div>
+                                </td>
+                                <td class="pe-3 text-end fw-600 {% if sector.trend > 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {% if sector.trend > 0 %}+{% endif %}{{ sector.trend|default:sector.change|default:2.5 }}%
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="text-center p-3 text-muted x-small">Complete profile to see sector analysis.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Strategy Framework -->
+        <div class="card mb-4">
+            <div class="card-header">Investment Strategy Framework</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 border-end pe-4">
+                        <h6 class="fw-bold x-small text-uppercase text-muted mb-3">Goal Allocation Weights</h6>
+                        {% for category, percentage in strategy.target_allocation.items %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between x-small mb-1">
+                                <span>{{ category|title }}</span>
+                                <span class="fw-bold">{{ percentage }}%</span>
+                            </div>
+                            <div class="progress" style="height:4px;">
+                                <div class="progress-bar" style="width:{{ percentage }}%"></div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="small text-muted">Set up your profile to see targets.</p>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6 ps-md-4">
+                        <h6 class="fw-bold x-small text-uppercase text-muted mb-3">Persona Constraints</h6>
+                        <div class="list-group list-group-flush small">
+                            <div class="list-group-item d-flex justify-content-between px-0 py-2 border-0">
+                                <span class="text-muted">Risk Tolerance:</span>
+                                <span class="fw-bold">{{ profile.risk_tolerance|default:5 }}/10</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between px-0 py-2 border-0">
+                                <span class="text-muted">Min Score Threshold:</span>
+                                <span class="fw-bold">{{ strategy.min_rating_threshold|default:60 }}+</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between px-0 py-2 border-0">
+                                <span class="text-muted">Capital Range:</span>
+                                <span class="fw-bold">₹{{ profile.min_investment|default:50000|floatformat:0|intcomma }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Top Picks -->
+        <div class="card">
+            <div class="card-header">AI Top Picks</div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for rec in recommendations %}
+                    <div class="list-group-item p-3 hover-lift">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="mb-0 fw-bold">{{ rec.ipo.company_name }}</h6>
+                                <small class="text-muted">{{ rec.ipo.sector }} &middot; ₹{{ rec.ipo.issue_size|floatformat:0 }} Cr</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-{% if 'BUY' in rec.rating %}success{% elif 'HOLD' in rec.rating %}warning{% else %}danger{% endif %} mb-1">{{ rec.rating }}</span>
+                                <div class="fw-bold text-primary" style="font-size:1rem;">{{ rec.overall_score|floatformat:0 }}%</div>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-4">
+                                <div class="p-2 border rounded text-center x-small bg-light">
+                                    <div class="text-muted">Financial</div>
+                                    <div class="fw-bold">{{ rec.financial_score|floatformat:0 }}</div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="p-2 border rounded text-center x-small bg-light">
+                                    <div class="text-muted">Risk</div>
+                                    <div class="fw-bold">{{ rec.risk_score|floatformat:0 }}</div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="p-2 border rounded text-center x-small bg-light">
+                                    <div class="text-muted">Growth</div>
+                                    <div class="fw-bold">{{ rec.growth_score|floatformat:0 }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted fst-italic" style="max-width:75%;">"{{ rec.rationale|truncatewords:12 }}"</small>
+                            <a href="{% url 'ipo_detail' rec.ipo.id %}" class="btn btn-sm btn-link text-decoration-none p-0 fw-bold x-small">Details &rarr;</a>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="p-4 text-center text-muted small">
+                        <i class="fas fa-robot mb-2 d-block fs-4 opacity-25"></i>
+                        No tailored recommendations yet. <a href="{% url 'create_profile' %}">Set up your profile</a> to get started.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right column -->
+    <div class="col-lg-4">
+        {% if portfolio %}
+        <div class="card mb-4">
+            <div class="card-header">Portfolio Performance</div>
+            <div class="card-body">
+                <div class="row g-0 mb-3 text-center">
+                    <div class="col-6 border-end">
+                        <small class="text-muted x-small text-uppercase d-block mb-1">Expected Return</small>
+                        <span class="h5 fw-bold mb-0 text-success">{{ portfolio.expected_return|floatformat:1 }}%</span>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted x-small text-uppercase d-block mb-1">Risk Metric</small>
+                        <span class="h5 fw-bold mb-0 text-danger">{{ portfolio.portfolio_risk|floatformat:1 }}%</span>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between x-small mb-1">
+                        <span>Diversification Score</span>
+                        <span class="fw-bold">{{ portfolio.diversification|default:75 }}%</span>
+                    </div>
+                    <div class="progress" style="height:5px;">
+                        <div class="progress-bar bg-info" style="width:{{ portfolio.diversification|default:75 }}%"></div>
+                    </div>
+                </div>
+                <a href="{% url 'portfolio' %}" class="btn btn-primary w-100 fw-600 btn-sm">View Full Portfolio</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="card mb-4 text-center p-4">
+            <i class="fas fa-wallet fs-2 text-muted opacity-25 mb-2"></i>
+            <h6 class="fw-bold">Build Your Portfolio</h6>
+            <p class="text-muted small">Let the AI engine curate your holdings based on your risk profile.</p>
+            <a href="{% url 'generate_portfolio' %}" class="btn btn-primary w-100 fw-600 btn-sm">Optimize Allocation</a>
+        </div>
+        {% endif %}
+
+        <div class="card mb-4">
+            <div class="card-header">Quick Links</div>
+            <div class="list-group list-group-flush small">
+                <a href="{% url 'watchlist' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2">
+                    <span><i class="fas fa-heart me-2 text-danger"></i>My Watchlist</span>
+                    <span class="badge bg-light text-dark border">{{ watchlist_count|default:0 }}</span>
+                </a>
+                <a href="{% url 'sentiment_dashboard' %}" class="list-group-item list-group-item-action py-2">
+                    <i class="fas fa-comments me-2 text-info"></i>Market Sentiment
+                </a>
+                <a href="{% url 'risk_dashboard' %}" class="list-group-item list-group-item-action py-2">
+                    <i class="fas fa-shield-alt me-2 text-success"></i>Risk Matrix
+                </a>
+                <a href="{% url 'ipo_list' %}" class="list-group-item list-group-item-action py-2">
+                    <i class="fas fa-list me-2 text-primary"></i>Browse All IPOs
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

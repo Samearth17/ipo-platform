@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Sign Up - IPO Platform{% endblock %}
+{% block content %}
+<div class="min-vh-100 d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-5">
+                <div class="card shadow-lg border-0" style="border-radius: 12px; overflow: hidden;">
+                    <div class="card-body p-0">
+                        <div style="background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%); color: white; padding: 2rem; text-align: center;">
+                            <i class="fas fa-rocket" style="font-size: 2.5rem; margin-bottom: 1rem; display: block;"></i>
+                            <h4 class="mb-1" style="font-weight: 700;">Join IPO Platform</h4>
+                            <p style="opacity: 0.9; margin: 0;">Start your intelligent investment journey</p>
+                        </div>
+                        <div style="padding: 2rem;">
+                            {% if errors %}
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <strong><i class="fas fa-exclamation-circle"></i> Signup Error!</strong>
+                                <ul class="mb-0 mt-2">
+                                    {% for error in errors %}
+                                    <li>{{ error }}</li>
+                                    {% endfor %}
+                                </ul>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                            {% endif %}
+                            <form method="post">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label for="username" class="form-label fw-600" style="font-weight: 600;">Username</label>
+                                    <div class="input-group" style="border-radius: 8px; overflow: hidden;">
+                                        <span class="input-group-text" style="background: #f5f7fa; border: 1px solid #e0e0e0;">
+                                            <i class="fas fa-user" style="color: #0d47a1;"></i>
+                                        </span>
+                                        <input
+                                            type="text"
+                                            class="form-control"
+                                            id="username"
+                                            name="username"
+                                            placeholder="Choose a username"
+                                            value="{{ username }}"
+                                            required
+                                            style="border: 1px solid #e0e0e0; padding: 0.75rem;"
+                                        >
+                                    </div>
+                                    <small class="text-muted">3-30 characters, letters and numbers</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="email" class="form-label fw-600" style="font-weight: 600;">Email Address</label>
+                                    <div class="input-group" style="border-radius: 8px; overflow: hidden;">
+                                        <span class="input-group-text" style="background: #f5f7fa; border: 1px solid #e0e0e0;">
+                                            <i class="fas fa-envelope" style="color: #0d47a1;"></i>
+                                        </span>
+                                        <input
+                                            type="email"
+                                            class="form-control"
+                                            id="email"
+                                            name="email"
+                                            placeholder="Enter your email"
+                                            value="{{ email }}"
+                                            required
+                                            style="border: 1px solid #e0e0e0; padding: 0.75rem;"
+                                        >
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="password" class="form-label fw-600" style="font-weight: 600;">Password</label>
+                                    <div class="input-group" style="border-radius: 8px; overflow: hidden;">
+                                        <span class="input-group-text" style="background: #f5f7fa; border: 1px solid #e0e0e0;">
+                                            <i class="fas fa-lock" style="color: #0d47a1;"></i>
+                                        </span>
+                                        <input
+                                            type="password"
+                                            class="form-control"
+                                            id="password"
+                                            name="password"
+                                            placeholder="Create a strong password"
+                                            required
+                                            style="border: 1px solid #e0e0e0; padding: 0.75rem;"
+                                        >
+                                    </div>
+                                    <small class="text-muted">At least 6 characters</small>
+                                </div>
+                                <div class="mb-4">
+                                    <label for="password_confirm" class="form-label fw-600" style="font-weight: 600;">Confirm Password</label>
+                                    <div class="input-group" style="border-radius: 8px; overflow: hidden;">
+                                        <span class="input-group-text" style="background: #f5f7fa; border: 1px solid #e0e0e0;">
+                                            <i class="fas fa-check-circle" style="color: #0d47a1;"></i>
+                                        </span>
+                                        <input
+                                            type="password"
+                                            class="form-control"
+                                            id="password_confirm"
+                                            name="password_confirm"
+                                            placeholder="Confirm your password"
+                                            required
+                                            style="border: 1px solid #e0e0e0; padding: 0.75rem;"
+                                        >
+                                    </div>
+                                </div>
+                                <div class="form-check mb-4">
+                                    <input class="form-check-input" type="checkbox" id="terms" name="terms">
+                                    <label class="form-check-label" for="terms">
+                                        I agree to the <a href="#" style="color: #0d47a1; text-decoration: none;">Terms & Conditions</a>
+                                    </label>
+                                </div>
+                                <button type="submit" class="btn w-100 py-2 fw-600" style="background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 1rem; transition: all 0.3s ease;">
+                                    <i class="fas fa-user-plus me-2"></i> Create Account
+                                </button>
+                                <div class="my-4" style="position: relative; text-align: center;">
+                                    <div style="border-top: 1px solid #e0e0e0;"></div>
+                                    <span style="background: white; padding: 0 1rem; position: relative; top: -12px; color: #999; font-size: 0.9rem;">Already registered?</span>
+                                </div>
+                                <div class="text-center">
+                                    <a href="{% url 'login' %}" class="btn btn-outline-primary w-100" style="border-radius: 8px; font-weight: 600;">
+                                        Sign In Here
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-5 text-white">
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-bolt" style="font-size: 2rem; color: #ffeb3b; margin-bottom: 0.5rem; display: block;"></i>
+                        <small>Smart Recommendations</small>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-shield-alt" style="font-size: 2rem; color: #4caf50; margin-bottom: 0.5rem; display: block;"></i>
+                        <small>Secure & Verified</small>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-chart-pie" style="font-size: 2rem; color: #00bcd4; margin-bottom: 0.5rem; display: block;"></i>
+                        <small>Portfolio Tools</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

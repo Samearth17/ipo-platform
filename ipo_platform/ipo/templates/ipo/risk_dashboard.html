@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Risk Dashboard - IPO Platform{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 fw-bold mb-0">Risk Assessment Dashboard</h1>
+        <p class="text-muted x-small mb-0 mt-1">Comprehensive risk analysis for your investment decisions</p>
+    </div>
+    <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary fw-600">
+        <i class="fas fa-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+{% if portfolio_risk %}
+<div class="row g-3 mb-4">
+    <div class="col-lg-3 col-md-6">
+        <div class="card stat-card mb-0 h-100 border-start border-3 {% if portfolio_risk.risk_level == 'Low' %}border-success{% elif portfolio_risk.risk_level == 'Medium' %}border-warning{% else %}border-danger{% endif %}">
+            <div class="text-muted x-small text-uppercase fw-600 mb-1">Portfolio Risk Score</div>
+            <h3 class="fw-bold mb-0">{{ portfolio_risk.risk_score|floatformat:1 }}/100</h3>
+            <span class="badge {% if portfolio_risk.risk_level == 'Low' %}bg-success{% elif portfolio_risk.risk_level == 'Medium' %}bg-warning text-dark{% else %}bg-danger{% endif %} mt-2">{{ portfolio_risk.risk_level }} Risk</span>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="card stat-card mb-0 h-100 border-start border-3 border-primary">
+            <div class="text-muted x-small text-uppercase fw-600 mb-1">Portfolio Volatility</div>
+            <h3 class="fw-bold mb-0">{{ portfolio_risk.portfolio_volatility|floatformat:1 }}%</h3>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="card stat-card mb-0 h-100 border-start border-3 border-warning">
+            <div class="text-muted x-small text-uppercase fw-600 mb-1">Value at Risk (95%)</div>
+            <h3 class="fw-bold mb-0">₹{{ portfolio_risk.VaR_95|floatformat:0 }}</h3>
+            <div class="text-muted x-small mt-1">Expected max loss</div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="card stat-card mb-0 h-100 border-start border-3 border-success">
+            <div class="text-muted x-small text-uppercase fw-600 mb-1">Diversification Score</div>
+            <h3 class="fw-bold mb-0">{{ portfolio_risk.diversification_score|floatformat:0 }}%</h3>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header border-bottom">
+                <h6 class="fw-bold mb-0 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Highest Risk IPOs</h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr class="x-small text-uppercase text-muted">
+                            <th class="ps-3">Company</th>
+                            <th>Sector</th>
+                            <th class="text-center">Score</th>
+                            <th class="pe-3 text-end">Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in risk_rankings|slice:":5" %}
+                        <tr>
+                            <td class="ps-3 fw-600 text-primary">{{ item.company_name }}</td>
+                            <td class="x-small text-muted">{{ item.sector }}</td>
+                            <td class="text-center fw-bold {% if item.risk_score > 60 %}text-danger{% elif item.risk_score > 40 %}text-warning{% else %}text-success{% endif %}">
+                                {{ item.risk_score|floatformat:0 }}
+                            </td>
+                            <td class="pe-3 text-end">
+                                <span class="badge {% if item.risk_level == 'Low' %}bg-success{% elif item.risk_level == 'Medium' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ item.risk_level }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header border-bottom">
+                <h6 class="fw-bold mb-0 text-success"><i class="fas fa-check-circle me-2"></i>Lowest Risk IPOs</h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr class="x-small text-uppercase text-muted">
+                            <th class="ps-3">Company</th>
+                            <th>Sector</th>
+                            <th class="text-center">Score</th>
+                            <th class="pe-3 text-end">Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in risk_rankings|slice:"-5:" %}
+                        <tr>
+                            <td class="ps-3 fw-600 text-primary">{{ item.company_name }}</td>
+                            <td class="x-small text-muted">{{ item.sector }}</td>
+                            <td class="text-center fw-bold {% if item.risk_score > 60 %}text-danger{% elif item.risk_score > 40 %}text-warning{% else %}text-success{% endif %}">
+                                {{ item.risk_score|floatformat:0 }}
+                            </td>
+                            <td class="pe-3 text-end">
+                                <span class="badge {% if item.risk_level == 'Low' %}bg-success{% elif item.risk_level == 'Medium' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ item.risk_level }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header border-bottom">
+        <h6 class="fw-bold mb-0">Full Risk Analysis</h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="bg-light">
+                <tr class="x-small text-uppercase text-muted">
+                    <th class="ps-3">Rank</th>
+                    <th>Company</th>
+                    <th>Sector</th>
+                    <th class="text-center">Volatility</th>
+                    <th class="text-center">Beta</th>
+                    <th class="text-center">Risk Score</th>
+                    <th class="pe-3 text-end">Rating</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in risk_rankings %}
+                <tr>
+                    <td class="ps-3 text-muted x-small">#{{ forloop.counter }}</td>
+                    <td class="fw-600 text-primary">{{ item.company_name }}</td>
+                    <td class="x-small text-muted">{{ item.sector }}</td>
+                    <td class="text-center">{{ item.volatility|floatformat:1 }}%</td>
+                    <td class="text-center">{{ item.beta|floatformat:2 }}</td>
+                    <td class="text-center">
+                        <div class="d-flex align-items-center justify-content-center gap-2">
+                            <div class="progress" style="width: 60px; height: 6px;">
+                                <div class="progress-bar {% if item.risk_score > 60 %}bg-danger{% elif item.risk_score > 40 %}bg-warning{% else %}bg-success{% endif %}" role="progressbar" style="width: {{ item.risk_score }}%"></div>
+                            </div>
+                            <span class="fw-bold x-small">{{ item.risk_score|floatformat:0 }}</span>
+                        </div>
+                    </td>
+                    <td class="pe-3 text-end">
+                        <span class="badge {% if item.risk_rating.0 == 'A' %}bg-success{% elif item.risk_rating.0 == 'B' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ item.risk_rating }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header border-bottom">
+                <h6 class="fw-bold mb-0">Risk Management Tips</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0 small">
+                    <li class="mb-3 d-flex align-items-start">
+                        <i class="fas fa-check-circle text-success me-2 mt-1"></i>
+                        <span>Diversify across sectors to reduce concentration risk.</span>
+                    </li>
+                    <li class="mb-3 d-flex align-items-start">
+                        <i class="fas fa-check-circle text-success me-2 mt-1"></i>
+                        <span>Consider your risk tolerance before investing in high-volatility IPOs.</span>
+                    </li>
+                    <li class="mb-3 d-flex align-items-start">
+                        <i class="fas fa-check-circle text-success me-2 mt-1"></i>
+                        <span>Monitor beta values to understand market sensitivity.</span>
+                    </li>
+                    <li class="d-flex align-items-start">
+                        <i class="fas fa-check-circle text-success me-2 mt-1"></i>
+                        <span>Rebalance your portfolio quarterly to maintain target risk levels.</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header border-bottom">
+                <h6 class="fw-bold mb-0">Your Profile Configuration</h6>
+            </div>
+            <div class="card-body text-center">
+                <h5 class="fw-bold mb-1">{{ profile.get_persona_display }} Investor</h5>
+                <p class="text-muted x-small mb-3">Risk Tolerance: {{ profile.risk_tolerance }}/10</p>
+                <div class="progress mb-3 mx-auto" style="height: 8px; max-width: 200px;">
+                    <div class="progress-bar bg-primary" style="width:{{ profile.risk_tolerance }}0%"></div>
+                </div>
+                <a href="{% url 'create_profile' %}" class="btn btn-sm btn-outline-primary fw-600">
+                    <i class="fas fa-edit me-1"></i> Adjust Settings
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

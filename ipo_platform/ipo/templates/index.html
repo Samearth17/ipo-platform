@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Home - IPO Investment Platform{% endblock %}
+{% block content %}
+<!-- Professional Hero Section -->
+<section class="rounded-4 overflow-hidden mb-5 text-white"
+    style="background: linear-gradient(135deg, #002b5c 0%, #0d47a1 100%);">
+    <div class="px-5 py-5">
+        <div class="row align-items-center">
+            <div class="col-lg-7 py-4">
+                <h1 class="display-5 fw-bold mb-3" style="line-height: 1.1;">
+                    Strategic IPO Intelligence for <span class="text-info">Modern Investors</span>
+                </h1>
+                <p class="lead mb-4 opacity-75">
+                    Navigate the market with AI-driven analysis, optimized portfolios, and deep fundamental insights.
+                    Built for precision financial decision making.
+                </p>
+                <div class="d-flex gap-3">
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'dashboard' %}" class="btn btn-light px-4 py-2 border-0 fw-bold">My Dashboard</a>
+                    <a href="{% url 'ipo_list' %}" class="btn btn-outline-light px-4 py-2 border-2 fw-bold">Explore
+                        Market</a>
+                    {% else %}
+                    <a href="{% url 'signup' %}" class="btn btn-light px-4 py-2 border-0 fw-bold">Get Started</a>
+                    <a href="{% url 'login' %}" class="btn btn-outline-light px-4 py-2 border-2 fw-bold">Sign In</a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-lg-5 text-center d-none d-lg-block">
+                <i class="fas fa-microchip" style="font-size: 8rem; opacity: 0.2;"></i>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Grid -->
+<div class="row g-4 mb-5 text-center">
+    <div class="col-md-3">
+        <div class="card p-3 border-0 shadow-sm">
+            <h2 class="h2 fw-bold text-primary mb-0">{{ stats.total_ipos }}</h2>
+            <small class="text-muted text-uppercase fw-600 x-small">IPOs Tracked</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 border-0 shadow-sm">
+            <h2 class="h2 fw-bold text-success mb-0">{{ stats.listed_ipos }}</h2>
+            <small class="text-muted text-uppercase fw-600 x-small">Listed Companies</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 border-0 shadow-sm">
+            <h2 class="h2 fw-bold text-warning mb-0">{{ stats.active_investors }}</h2>
+            <small class="text-muted text-uppercase fw-600 x-small">Active Investors</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 border-0 shadow-sm">
+            <h2 class="h2 fw-bold text-info mb-0">24/7</h2>
+            <small class="text-muted text-uppercase fw-600 x-small">Real-time Analysis</small>
+        </div>
+    </div>
+</div>
+
+{% if featured_ipos %}
+<div class="mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="h4 fw-bold m-0"><i class="fas fa-layer-group me-2 text-primary"></i>Featured Opportunities</h2>
+        <a href="{% url 'ipo_list' %}" class="btn btn-sm btn-link text-decoration-none fw-bold">All Listings &rarr;</a>
+    </div>
+    <div class="row g-4">
+        {% for ipo in featured_ipos %}
+        <div class="col-lg-4 col-md-6">
+            <div class="card h-100 border-0 shadow-sm home-card">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="badge bg-light text-primary border border-primary x-small">UPCOMING</span>
+                        <small class="text-muted x-small fw-600 text-uppercase">{{ ipo.sector|truncatechars:15
+                            }}</small>
+                    </div>
+                    <h5 class="fw-bold mb-3">{{ ipo.company_name }}</h5>
+                    <div class="row g-0 mb-3 border-top border-bottom py-2">
+                        <div class="col-6 mb-1">
+                            <small class="text-muted x-small d-block">Issue Size</small>
+                            <span class="fw-bold small">₹{{ ipo.issue_size|floatformat:0 }} Cr</span>
+                        </div>
+                        <div class="col-6 mb-1">
+                            <small class="text-muted x-small d-block">Opens On</small>
+                            <span class="fw-bold small">{{ ipo.open_date|date:"d M" }}</span>
+                        </div>
+                    </div>
+                    <a href="{% url 'ipo_detail' ipo.id %}" class="btn btn-primary btn-sm w-100 fw-bold">Deep
+                        Analysis</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Features Section -->
+<div class="row g-4 mb-5">
+    <div class="col-md-4">
+        <div class="p-4 bg-white rounded-3 shadow-sm h-100 border-start border-primary border-4">
+            <i class="fas fa-robot fs-2 text-primary mb-3"></i>
+            <h6 class="fw-bold">AI Recommendations</h6>
+            <p class="small text-muted mb-0">Algorithms weighted by your personal risk profile and financial objectives.
+            </p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="p-4 bg-white rounded-3 shadow-sm h-100 border-start border-success border-4">
+            <i class="fas fa-chart-pie fs-2 text-success mb-3"></i>
+            <h6 class="fw-bold">Growth Portfolios</h6>
+            <p class="small text-muted mb-0">Optimized allocation models designed to balance volatility and listing
+                gains.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="p-4 bg-white rounded-3 shadow-sm h-100 border-start border-warning border-4">
+            <i class="fas fa-shield-alt fs-2 text-warning mb-3"></i>
+            <h6 class="fw-bold">Risk Management</h6>
+            <p class="small text-muted mb-0">Stress test simulations and fundamental scoring to protect your capital.
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .home-card {
+        transition: all 0.2s;
+    }
+
+    .home-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
+    }
+</style>
+{% endblock %}

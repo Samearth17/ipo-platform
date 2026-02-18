@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Generate Portfolio - IPO Platform{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="text-center mb-5">
+            <h1 class="display-5 fw-700" style="color: #0d47a1; margin-bottom: 1rem;">
+                <i class="fas fa-wand-magic-sparkles me-3"></i>Generate Your Portfolio
+            </h1>
+            <p class="lead text-muted">Create an AI-optimized IPO portfolio based on your strategy and investment amount
+            </p>
+        </div>
+        <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; overflow: hidden;">
+            <div class="card-header"
+                style="background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%); color: white; padding: 1.5rem; border: none;">
+                <h5 class="mb-0 fw-700">
+                    <i class="fas fa-sliders-h me-2"></i>Portfolio Configuration
+                </h5>
+            </div>
+            <form method="post" class="card-body p-4" id="portfolioForm">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger mb-4">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+                <div class="mb-4">
+                    <div class="alert alert-info d-flex align-items-center" role="alert">
+                        <i class="fas fa-info-circle me-3" style="font-size: 1.2rem;"></i>
+                        <div>
+                            <strong>Your Strategy:</strong> {{ profile.get_persona_display }} Investor
+                            <br><small style="opacity: 0.9;">{{ strategy.name }}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="allocation_amount" class="form-label fw-600">
+                        <i class="fas fa-indian-rupee-sign me-2"></i>Total Investment Amount
+                    </label>
+                    <div class="input-group input-group-lg" style="border-radius: 8px; overflow: hidden;">
+                        <span class="input-group-text" style="background: #f5f7fa; border: 1px solid #e0e0e0;">₹</span>
+                        <input type="number" class="form-control" name="allocation_amount" id="allocation_amount"
+                            placeholder="Enter amount (e.g., 500000)" value="100000" min="10000" step="10000" required
+                            style="border: 1px solid #e0e0e0; font-size: 1.1rem;">
+                    </div>
+                    <small class="text-muted mt-2 d-block">
+                        <i class="fas fa-lightbulb me-1"></i>
+                        This is the total capital you want to invest across all recommended IPOs
+                    </small>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label fw-600 mb-3">
+                        <i class="fas fa-tasks me-2"></i>IPO Status Preference
+                    </label>
+                    <div class="filter-box p-3 bg-light rounded">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" name="include_upcoming" id="upcoming"
+                                checked>
+                            <label class="form-check-label" for="upcoming">
+                                <strong>Upcoming IPOs</strong>
+                                <br><small class="text-muted">Not yet listed - Higher growth potential</small>
+                            </label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" name="include_ongoing" id="ongoing" checked>
+                            <label class="form-check-label" for="ongoing">
+                                <strong>Ongoing IPOs</strong>
+                                <br><small class="text-muted">Currently accepting subscriptions</small>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="include_listed" id="listed">
+                            <label class="form-check-label" for="listed">
+                                <strong>Listed IPOs</strong>
+                                <br><small class="text-muted">Already trading - More stable</small>
+                            </label>
+                        </div>
+                    </div>
+                    <small class="text-muted mt-2 d-block">
+                        Select which IPO stages you want included in your portfolio
+                    </small>
+                </div>
+                <div class="mb-4">
+                    <label for="diversification" class="form-label fw-600">
+                        <i class="fas fa-network-wired me-2"></i>Diversification Level
+                    </label>
+                    <div class="d-flex align-items-center gap-3">
+                        <input type="range" class="form-range" min="1" max="10" value="5" name="diversification"
+                            id="diversification" style="flex: 1;">
+                        <span class="badge bg-info" id="divValue" style="min-width: 40px; text-align: center;">5</span>
+                    </div>
+                    <small class="text-muted mt-2 d-block">
+                        <span id="divDesc">Balanced diversification - mix of established and growth companies</span>
+                    </small>
+                </div>
+                <div class="mb-4">
+                    <div class="card border-warning">
+                        <div class="card-body p-3">
+                            <div class="d-flex gap-2">
+                                <i class="fas fa-shield-alt" style="color: #ff9800; flex-shrink: 0;"></i>
+                                <div>
+                                    <strong>Risk Level:</strong> {{ profile.get_persona_display }}
+                                    <br><small class="text-muted">Min score threshold: {{ strategy.min_rating_threshold
+                                        }}+</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card bg-light border-0 mb-4">
+                    <div class="card-body p-3">
+                        <h6 class="fw-700 mb-2">
+                            <i class="fas fa-magic me-2" style="color: #0d47a1;"></i>How We Optimize
+                        </h6>
+                        <ul class="small mb-0" style="color: #555;">
+                            <li>Analyzes all available IPOs against your strategy</li>
+                            <li>Scores each IPO based on financial strength, growth potential, and risk</li>
+                            <li>Creates balanced allocation across sectors</li>
+                            <li>Optimizes for expected returns within your risk tolerance</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg fw-600"
+                        style="border-radius: 8px; padding: 0.75rem;">
+                        <i class="fas fa-sparkles me-2"></i>Generate My Portfolio
+                    </button>
+                    <a href="{% url 'portfolio' %}" class="btn btn-outline-secondary fw-600"
+                        style="border-radius: 8px; padding: 0.75rem;">
+                        Cancel
+                    </a>
+                </div>
+                <p class="text-center small text-muted mt-4 mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Portfolio recommendations are generated based on historical data and AI analysis.
+                    <br>Past performance does not guarantee future results. Please consult an advisor before investing.
+                </p>
+            </form>
+        </div>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <div class="benefit-box p-3"
+                    style="background: white; border-radius: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <i class="fas fa-robot"
+                        style="font-size: 2rem; color: #0d47a1; margin-bottom: 0.5rem; display: block;"></i>
+                    <h6 class="fw-700 mb-1">AI Optimized</h6>
+                    <small class="text-muted">Powered by advanced algorithms</small>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="benefit-box p-3"
+                    style="background: white; border-radius: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <i class="fas fa-chart-pie"
+                        style="font-size: 2rem; color: #4caf50; margin-bottom: 0.5rem; display: block;"></i>
+                    <h6 class="fw-700 mb-1">Diversified</h6>
+                    <small class="text-muted">Spread across multiple sectors</small>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="benefit-box p-3"
+                    style="background: white; border-radius: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <i class="fas fa-redo"
+                        style="font-size: 2rem; color: #ff9800; margin-bottom: 0.5rem; display: block;"></i>
+                    <h6 class="fw-700 mb-1">Regenerate</h6>
+                    <small class="text-muted">Anytime as market changes</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    // Update diversification display
+    document.getElementById('diversification').addEventListener('change', function () {
+        const value = this.value;
+        document.getElementById('divValue').textContent = value;
+        let desc = '';
+        if (value <= 3) {
+            desc = 'Concentrated - Focus on top-tier companies (Higher risk, higher potential returns)';
+        } else if (value <= 6) {
+            desc = 'Balanced - Mix of established and growth companies (Moderate risk)';
+        } else {
+            desc = 'Conservative - Broad diversification across many IPOs (Lower risk, stable returns)';
+        }
+        document.getElementById('divDesc').textContent = desc;
+    });
+    // Form submission with loading state
+    document.getElementById('portfolioForm').addEventListener('submit', function () {
+        const btn = document.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating Portfolio...';
+    });
+</script>
+<style>
+    .benefit-box {
+        transition: all 0.3s ease;
+    }
+
+    .benefit-box:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+    }
+</style>
+{% endblock %}
