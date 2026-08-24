@@ -10,10 +10,10 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.db.models import Q, Avg, Count
 from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from django.utils import timezone
 
-from .models import IPO, InvestorProfile, Recommendation, PortfolioRecommendation, Watchlist
+from .models import IPO, InvestorProfile, Recommendation, PortfolioRecommendation, Watchlist, SavedPortfolio
 from .recommendation_engine import RecommendationEngine, IPOScorer
 from .portfolio_optimization import PortfolioOptimizer
 from .market_data_service import MarketDataService, enrich_ipo_data
@@ -141,6 +141,8 @@ def dashboard(request):
         profile = InvestorProfile.objects.get(user=request.user)
     except InvestorProfile.DoesNotExist:
         return redirect('create_profile')
+    if not profile.onboarding_completed:
+        return redirect('create_profile')
     
     # Get recommendations
     engine = RecommendationEngine(profile)
@@ -180,6 +182,8 @@ def dashboard(request):
         'recommendations': recommendations,
         'portfolio': portfolio_data,
         'watchlist_count': watchlist_count,
+        'saved_portfolio_count': SavedPortfolio.objects.filter(user=request.user).count(),
+        'recent_saved_portfolios': SavedPortfolio.objects.filter(user=request.user)[:3],
         'market_indices': market_indices,
         'sector_performance': sector_performance,
         'stats': {
@@ -199,7 +203,10 @@ def create_profile(request):
     profile, created = InvestorProfile.objects.get_or_create(user=request.user)
     
     if request.method == 'POST':
-        persona = request.POST.get('persona', 'moderate')
+        persona = request.POST.get('persona', 'balanced')
+        if persona not in {'conservative', 'balanced', 'growth', 'aggressive'}:
+            messages.error(request, 'Please select a valid investor persona.')
+            return redirect('create_profile')
         investment_horizon = request.POST.get('investment_horizon', 'medium')
         
         # Robust parsing for risk_tolerance
@@ -220,6 +227,7 @@ def create_profile(request):
         profile.risk_tolerance = risk_tolerance
         profile.min_investment = min_investment
         profile.max_investment = max_investment
+        profile.onboarding_completed = True
         profile.save()
         
         messages.success(request, "Profile updated successfully!")
@@ -227,14 +235,25 @@ def create_profile(request):
     
     context = {
         'profile': profile,
+        'is_onboarding': not profile.onboarding_completed,
+        'google_account': _google_account(request.user),
         'personas': [
             {'value': 'conservative', 'label': 'Conservative', 'description': 'Capital preservation with modest growth'},
-            {'value': 'moderate', 'label': 'Moderate', 'description': 'Balanced risk-return approach'},
+            {'value': 'balanced', 'label': 'Balanced', 'description': 'Balanced risk-return approach'},
+            {'value': 'growth', 'label': 'Growth', 'description': 'Growth with risk guardrails'},
             {'value': 'aggressive', 'label': 'Aggressive', 'description': 'Growth maximization'}
         ]
     }
     
     return render(request, 'profile.html', context)
+
+
+def _google_account(user):
+    """Return Google identity data when available without requiring OAuth at startup."""
+    try:
+        return user.socialaccount_set.filter(provider='google').first()
+    except Exception:
+        return None
 
 
 def ipo_list(request):
@@ -265,23 +284,50 @@ def ipo_list(request):
     if sort in ['open_date', '-open_date', 'issue_size', '-issue_size', 'company_name']:
         ipos = ipos.order_by(sort)
     
+    recommendation_filter = request.GET.get('recommendation', '')
+    min_score = request.GET.get('min_score', '')
+    risk_level_filter = request.GET.get('risk_level', '')
+    watched_ids = set()
+    if request.user.is_authenticated:
+        watched_ids = set(Watchlist.objects.filter(user=request.user).values_list('ipos__id', flat=True))
+    cards = []
+    for ipo in ipos:
+        scores = IPOScorer(ipo).get_all_scores()
+        overall, safety = scores['overall_score'], scores['risk_score']
+        recommendation = 'BUY' if overall >= 65 else 'HOLD' if overall >= 50 else 'SELL'
+        risk_level = 'Low' if safety >= 65 else 'Moderate' if safety >= 45 else 'High'
+        if min_score:
+            try:
+                if overall < float(min_score):
+                    continue
+            except ValueError:
+                pass
+        if recommendation_filter and recommendation != recommendation_filter:
+            continue
+        if risk_level_filter and risk_level != risk_level_filter:
+            continue
+        ipo.quant_score, ipo.risk_level, ipo.recommendation_label = overall, risk_level, recommendation
+        ipo.is_watchlisted = ipo.id in watched_ids
+        cards.append(ipo)
     sectors = IPO.objects.values_list('sector', flat=True).distinct().order_by('sector')
-    total_count = ipos.count()
+    total_count = len(cards)
     
     context = {
-        'ipos': ipos,
+        'ipos': cards,
         'search': search,
         'status': status,
         'sector': sector,
         'sort': sort,
         'sectors': sectors,
         'total_count': total_count,
+        'recommendation_filter': recommendation_filter,
+        'min_score': min_score,
+        'risk_level_filter': risk_level_filter,
     }
     
     return render(request, 'ipo/ipo_list.html', context)
 
 
-@login_required
 def ipo_detail(request, pk):
     """IPO detail page with analysis."""
     ipo = get_object_or_404(IPO, pk=pk)
@@ -293,9 +339,16 @@ def ipo_detail(request, pk):
     # Calculate scores
     scorer = IPOScorer(ipo)
     scores = scorer.get_all_scores()
+    score_rows = [(label, scores[key]) for label, key in [
+        ('Financial', 'financial_score'), ('Growth', 'growth_score'), ('Valuation', 'valuation_score'),
+        ('Risk / Safety', 'risk_score'), ('Quality', 'quality_score'), ('Momentum', 'momentum_score'),
+        ('ESG', 'esg_score'), ('Management', 'management_score')
+    ]]
     
     # Get recommendation
     try:
+        if not request.user.is_authenticated:
+            raise InvestorProfile.DoesNotExist
         profile = InvestorProfile.objects.get(user=request.user)
         
         recommendation, created = Recommendation.objects.get_or_create(
@@ -345,13 +398,12 @@ def ipo_detail(request, pk):
     analysis = scorer.analyze_ipo(ipo, IPO.objects.all())
     
     # Related recommendations
-    related_recommendations = Recommendation.objects.filter(
-        ipo=ipo
-    ).select_related('investor_profile__user').order_by('-overall_score')[:5]
+    related_recommendations = Recommendation.objects.none()
     
     context = {
         'ipo': ipo,
         'scores': scores,
+        'score_rows': score_rows,
         'recommendation': recommendation,
         'has_recommendation': has_recommendation,
         'sentiment': sentiment,
@@ -359,6 +411,7 @@ def ipo_detail(request, pk):
         'risk_assessment': risk_assessment,
         'analysis': analysis,
         'related_recommendations': related_recommendations,
+        'is_watchlisted': request.user.is_authenticated and Watchlist.objects.filter(user=request.user, ipos=ipo).exists(),
     }
     
     return render(request, 'ipo/ipo_detail.html', context)
@@ -468,26 +521,10 @@ def portfolio(request):
         # Calculate actual weights based on recommendations
         total_recs = top_recommendations.count()
         
-        # Use persona to determine allocation strategy
-        if profile.persona == 'conservative':
-            # Equal weight distribution for conservative
-            base_weight = 1.0 / total_recs if total_recs > 0 else 0
-            weights = [base_weight] * total_recs
-        elif profile.persona == 'aggressive':
-            # Top-heavy distribution for aggressive (higher weight to top performers)
-            weights = []
-            for i in range(total_recs):
-                weight = (total_recs - i) / sum(range(1, total_recs + 1))
-                weights.append(weight)
-        else:  # moderate
-            # Slightly top-heavy for moderate
-            weights = []
-            for i in range(total_recs):
-                weight = (total_recs - i * 0.5) / sum(range(1, total_recs + 1))
-                weights.append(weight)
-            # Normalize weights
-            total_weight = sum(weights)
-            weights = [w / total_weight for w in weights]
+        # Use the optimizer's persisted weights; equal weight is only a legacy fallback.
+        weights = [float(rec.weight) for rec in top_recommendations]
+        if not any(weights):
+            weights = [1.0 / total_recs] * total_recs if total_recs else []
         
         holdings = []
         for idx, rec in enumerate(top_recommendations):
@@ -499,7 +536,7 @@ def portfolio(request):
                 'sector': ipo.sector,
                 'weight': weight,
                 'volatility': float(ipo.volatility) if ipo.volatility else 30,
-                'beta': float(ipo.volatility) / 20 if ipo.volatility else 1.5
+                # No beta is stored in the schema; PortfolioRiskAnalyzer uses an explicit neutral fallback.
             })
         
         analyzer = PortfolioRiskAnalyzer()
@@ -623,16 +660,9 @@ def risk_dashboard(request):
         top_recs = portfolio.top_recommendations.all()
         total_recs = top_recs.count()
         
-        # Calculate weights based on persona (same logic as portfolio view)
-        if profile.persona == 'conservative':
-            base_weight = 1.0 / total_recs if total_recs > 0 else 0
-            weights = [base_weight] * total_recs
-        elif profile.persona == 'aggressive':
-            weights = [(total_recs - i) / sum(range(1, total_recs + 1)) for i in range(total_recs)]
-        else:
-            weights = [(total_recs - i * 0.5) / sum(range(1, total_recs + 1)) for i in range(total_recs)]
-            total_weight = sum(weights)
-            weights = [w / total_weight for w in weights]
+        weights = [float(rec.weight) for rec in top_recs]
+        if not any(weights):
+            weights = [1.0 / total_recs] * total_recs if total_recs else []
         
         holdings = []
         for idx, rec in enumerate(top_recs):
@@ -644,7 +674,7 @@ def risk_dashboard(request):
                 'sector': ipo.sector,
                 'weight': weight,
                 'volatility': float(ipo.volatility) if ipo.volatility else 30,
-                'beta': float(ipo.volatility) / 20 if ipo.volatility else 1.5
+                # No beta is stored in the schema; PortfolioRiskAnalyzer uses an explicit neutral fallback.
             })
         
         analyzer = PortfolioRiskAnalyzer()
@@ -719,6 +749,7 @@ def watchlist(request):
 
 
 @login_required
+@require_POST
 def add_to_watchlist(request, pk):
     """Add IPO to watchlist."""
     ipo = get_object_or_404(IPO, pk=pk)
@@ -731,6 +762,7 @@ def add_to_watchlist(request, pk):
 
 
 @login_required
+@require_POST
 def remove_from_watchlist(request, pk):
     """Remove IPO from watchlist."""
     ipo = get_object_or_404(IPO, pk=pk)
@@ -740,6 +772,95 @@ def remove_from_watchlist(request, pk):
     messages.success(request, f'{ipo.company_name} removed from watchlist!')
     
     return redirect('watchlist')
+
+
+@login_required
+@require_POST
+def save_current_portfolio(request):
+    """Persist the current user's allocation as an immutable JSON snapshot."""
+    profile = get_object_or_404(InvestorProfile, user=request.user)
+    current = get_object_or_404(PortfolioRecommendation, investor_profile=profile)
+    recommendations = current.top_recommendations.select_related('ipo').all()
+    allocations = [{
+        'ipo_id': rec.ipo_id, 'company_name': rec.ipo.company_name, 'symbol': rec.ipo.symbol,
+        'sector': rec.ipo.sector, 'weight': rec.weight, 'allocated_amount': float(rec.allocated_amount),
+    } for rec in recommendations]
+    SavedPortfolio.objects.create(
+        user=request.user,
+        name=request.POST.get('name', '').strip() or f"Portfolio {timezone.localdate()}",
+        investor_persona=profile.persona,
+        optimization_method=request.POST.get('optimization_method', 'current_allocation'),
+        allocations=allocations,
+        metrics={'expected_return': current.expected_return, 'portfolio_risk': current.portfolio_risk, 'diversification_score': current.diversification_score},
+    )
+    messages.success(request, 'Portfolio saved to your account.')
+    return redirect('saved_portfolios')
+
+
+@login_required
+def saved_portfolios(request):
+    return render(request, 'ipo/saved_portfolios.html', {'saved_portfolios': SavedPortfolio.objects.filter(user=request.user)})
+
+
+@login_required
+def saved_portfolio_detail(request, pk):
+    portfolio = get_object_or_404(SavedPortfolio, pk=pk, user=request.user)
+    return render(request, 'ipo/saved_portfolio_detail.html', {'saved_portfolio': portfolio})
+
+
+@login_required
+@require_POST
+def delete_saved_portfolio(request, pk):
+    get_object_or_404(SavedPortfolio, pk=pk, user=request.user).delete()
+    messages.success(request, 'Saved portfolio deleted.')
+    return redirect('saved_portfolios')
+
+
+@login_required
+@require_POST
+def delete_account(request):
+    if request.POST.get('confirmation') != 'DELETE':
+        messages.error(request, 'Type DELETE to confirm account deletion.')
+        return redirect('create_profile')
+    request.user.delete()
+    messages.success(request, 'Your account and personal data were deleted. Global IPO data was retained.')
+    return redirect('index')
+
+
+def terms(request):
+    return render(request, 'legal/terms.html')
+
+
+def privacy(request):
+    return render(request, 'legal/privacy.html')
+
+
+def disclaimer(request):
+    return render(request, 'legal/disclaimer.html')
+
+
+def contact(request):
+    return render(request, 'legal/contact.html')
+
+
+def about(request):
+    return render(request, 'legal/about.html')
+
+
+def how_it_works(request):
+    return render(request, 'legal/how_it_works.html')
+
+
+def error_404(request, exception):
+    return render(request, 'errors/404.html', status=404)
+
+
+def error_403(request, exception):
+    return render(request, 'errors/403.html', status=403)
+
+
+def error_500(request):
+    return render(request, 'errors/500.html', status=500)
 
 
 def search_suggestions(request):
@@ -772,4 +893,3 @@ def refresh_market_data(request):
         return redirect('dashboard')
     
     return redirect('dashboard')
-

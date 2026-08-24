@@ -21,6 +21,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 import os
+from dotenv import load_dotenv
+LOG_DIR = BASE_DIR / 'logs'
+LOG_DIR.mkdir(exist_ok=True)
+load_dotenv(BASE_DIR.parent / '.env')
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-itpv58mg#r#_nb!0+6(%kal!4kiq$7(fwn+qu_1z4b@*@ezgk6')
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -36,11 +40,16 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
+    'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     'rest_framework',
     'corsheaders',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
     'ipo',
 ]
 
@@ -51,9 +60,30 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+SITE_ID = 1
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+ACCOUNT_ADAPTER = 'ipo.adapters.IPOAccountAdapter'
+ACCOUNT_LOGIN_METHODS = {'username', 'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*']
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+SOCIALACCOUNT_LOGIN_ON_GET = False
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': ['openid', 'email', 'profile'],
+        'AUTH_PARAMS': {'access_type': 'online'},
+        'APP': {'client_id': os.environ.get('GOOGLE_CLIENT_ID', ''), 'secret': os.environ.get('GOOGLE_CLIENT_SECRET', ''), 'key': ''},
+    },
+}
 
 ROOT_URLCONF = 'ipo_platform.urls'
 
@@ -233,7 +263,7 @@ LOGGING = {
         'file': {
             'level': 'INFO',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'ipo_platform.log',
+            'filename': LOG_DIR / 'ipo_platform.log',
             'maxBytes': 1024 * 1024 * 15,  # 15MB
             'backupCount': 10,
             'formatter': 'verbose',

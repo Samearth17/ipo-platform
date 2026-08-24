@@ -41,6 +41,7 @@ urlpatterns = [
     
     # Profile Management
     path('profile/', views.create_profile, name='create_profile'),
+    path('profile/delete/', views.delete_account, name='delete_account'),
     
     # IPOs
     path('browse/', views.ipo_list, name='ipo_list'),
@@ -52,6 +53,10 @@ urlpatterns = [
     # Portfolio
     path('portfolio/', views.portfolio, name='portfolio'),
     path('portfolio/generate/', views.generate_portfolio, name='generate_portfolio'),
+    path('portfolio/save/', views.save_current_portfolio, name='save_current_portfolio'),
+    path('portfolio/saved/', views.saved_portfolios, name='saved_portfolios'),
+    path('portfolio/saved/<int:pk>/', views.saved_portfolio_detail, name='saved_portfolio_detail'),
+    path('portfolio/saved/<int:pk>/delete/', views.delete_saved_portfolio, name='delete_saved_portfolio'),
     
     # New Feature Pages
     path('risk-dashboard/', views.risk_dashboard, name='risk_dashboard'),
@@ -61,6 +66,13 @@ urlpatterns = [
     path('watchlist/', views.watchlist, name='watchlist'),
     path('watchlist/add/<int:pk>/', views.add_to_watchlist, name='add_to_watchlist'),
     path('watchlist/remove/<int:pk>/', views.remove_from_watchlist, name='remove_from_watchlist'),
+
+    path('terms/', views.terms, name='terms'),
+    path('privacy/', views.privacy, name='privacy'),
+    path('disclaimer/', views.disclaimer, name='disclaimer'),
+    path('contact/', views.contact, name='contact'),
+    path('about/', views.about, name='about'),
+    path('how-it-works/', views.how_it_works, name='how_it_works'),
     
     # Search
     path('api/search/', views.search_suggestions, name='search_suggestions'),
@@ -93,4 +105,3 @@ urlpatterns = [
     # Technical Analysis APIs
     path('api/technical-indicators/<str:symbol>/', TechnicalIndicatorsAPI.as_view(), name='technical-indicators-api'),
 ]
-

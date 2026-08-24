@@ -365,7 +365,7 @@ class PortfolioRiskAPI(APIView):
                     'sector': ipo.sector,
                     'weight': 0.2,  # Simplified
                     'volatility': float(ipo.volatility) if ipo.volatility else 30,
-                    'beta': float(ipo.volatility) / 20 if ipo.volatility else 1.5
+                    # Beta is only returned when calculated from aligned historical returns.
                 })
         except PortfolioRecommendation.DoesNotExist:
             holdings = []
@@ -524,4 +524,3 @@ class RefreshMarketDataAPI(APIView):
             "skipped": result['skipped'],
             "message": "Market data refresh completed"
         })
-

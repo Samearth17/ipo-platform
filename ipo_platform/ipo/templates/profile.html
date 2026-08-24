@@ -4,11 +4,12 @@
 <div class="row justify-content-center">
     <div class="col-lg-7">
         <div class="mb-4">
-            <h1 class="h4 fw-bold mb-0">Investor Strategy Setup</h1>
+            <h1 class="h4 fw-bold mb-0">{% if is_onboarding %}What kind of investor are you?{% else %}Your Profile{% endif %}</h1>
             <p class="text-muted x-small mt-1">Define your risk profile and AI recommendation parameters.</p>
         </div>
-        <div class="card shadow-sm">
+            <div class="card shadow-sm">
             <div class="card-body p-4">
+                <div class="d-flex align-items-center gap-3 mb-4">{% if google_account and google_account.extra_data.picture %}<img src="{{ google_account.extra_data.picture }}" alt="Profile picture" class="rounded-circle" width="44" height="44">{% else %}<div class="rounded-circle bg-light p-2"><i class="fas fa-user"></i></div>{% endif %}<div><div class="fw-bold">{{ user.get_full_name|default:user.username }}</div><div class="text-muted small">{{ user.email }}</div><div class="text-muted x-small">Account created {{ user.date_joined|date:"d M Y" }}</div></div></div>
                 <form method="post">
                     {% csrf_token %}
                     {% if messages %}
@@ -104,6 +105,7 @@
         </div>
     </div>
 </div>
+{% if not is_onboarding %}<div class="row justify-content-center mt-3"><div class="col-lg-7"><div class="card border-danger"><div class="card-body"><h6 class="text-danger">Delete account</h6><p class="small text-muted">This permanently deletes your profile, watchlist, saved portfolios, and recommendations. Global IPO records remain.</p><form method="post" action="{% url 'delete_account' %}" class="d-flex gap-2">{% csrf_token %}<input name="confirmation" class="form-control" placeholder="Type DELETE to confirm"><button class="btn btn-danger">Delete account</button></form></div></div></div></div>{% endif %}
 <script>
     const slider = document.getElementById('riskSlider');
     const label = document.getElementById('riskLabel');

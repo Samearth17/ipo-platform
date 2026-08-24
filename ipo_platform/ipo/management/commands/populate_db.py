@@ -8,11 +8,17 @@ from decimal import Decimal
 class Command(BaseCommand):
     help = 'Populates the database with realistic IPO data'
 
-    def handle(self, *args, **kwargs):
-        self.stdout.write('Cleaning existing IPO data...')
-        IPO.objects.all().delete()
+    def add_arguments(self, parser):
+        parser.add_argument('--reset', action='store_true', help='Delete existing IPO records before loading samples.')
 
-        # REAL IPO Data from 2023-2024
+    def handle(self, *args, **kwargs):
+        if kwargs.get('reset'):
+            self.stdout.write('Cleaning existing IPO data...')
+            IPO.objects.all().delete()
+        else:
+            self.stdout.write('Keeping existing IPO data; existing symbols will be skipped.')
+
+        # Bundled historical SAMPLE data from 2023-2024; not a live feed.
         real_ipos = [
             # --- 2023 Blockbusters ---
             {
@@ -1216,6 +1222,8 @@ class Command(BaseCommand):
         ]
 
         for data in real_ipos:
+            if not kwargs.get('reset') and data.get('symbol') and IPO.objects.filter(symbol=data['symbol']).exists():
+                continue
             # Handle dates
             if 'open_date' in data:
                 open_date = timezone.datetime.strptime(data['open_date'], "%Y-%m-%d").date()
@@ -1301,7 +1309,7 @@ class Command(BaseCommand):
             ipo.save()
             self.stdout.write(self.style.SUCCESS(f'Created IPO: {ipo.company_name}'))
 
-        self.stdout.write(self.style.SUCCESS(f'Successfully populated database with {len(real_ipos)} REAL IPO entries'))
+        self.stdout.write(self.style.SUCCESS(f'Successfully populated database with {len(real_ipos)} DEMO/SAMPLE IPO entries'))
 
     def _generate_realistic_esg(self, data):
         """Simulate realistic ESG scores based on sector."""

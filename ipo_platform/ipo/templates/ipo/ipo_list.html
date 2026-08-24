@@ -22,6 +22,18 @@
                 </div>
             </div>
             <div class="col-md-2">
+                <label class="form-label x-small fw-600 text-uppercase mb-1">Recommendation</label>
+                <select class="form-select form-select-sm" name="recommendation"><option value="">All</option><option value="BUY" {% if recommendation_filter == 'BUY' %}selected{% endif %}>BUY</option><option value="HOLD" {% if recommendation_filter == 'HOLD' %}selected{% endif %}>HOLD</option><option value="SELL" {% if recommendation_filter == 'SELL' %}selected{% endif %}>SELL</option></select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label x-small fw-600 text-uppercase mb-1">Min score</label>
+                <input type="number" class="form-control form-control-sm" min="0" max="100" name="min_score" value="{{ min_score }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label x-small fw-600 text-uppercase mb-1">Risk</label>
+                <select class="form-select form-select-sm" name="risk_level"><option value="">All</option><option value="Low" {% if risk_level_filter == 'Low' %}selected{% endif %}>Low</option><option value="Moderate" {% if risk_level_filter == 'Moderate' %}selected{% endif %}>Moderate</option><option value="High" {% if risk_level_filter == 'High' %}selected{% endif %}>High</option></select>
+            </div>
+            <div class="col-md-2">
                 <label class="form-label x-small fw-600 text-uppercase mb-1">Status</label>
                 <select class="form-select form-select-sm" name="status">
                     <option value="">All</option>
@@ -72,6 +84,8 @@
                 <h6 class="fw-bold text-primary mb-1">{{ ipo.company_name }}</h6>
                 <p class="x-small text-muted mb-3">{{ ipo.lead_manager|truncatechars:35 }}</p>
                 <div class="bg-light rounded p-2 mb-3">
+                    <div class="d-flex justify-content-between mb-2"><span class="badge bg-primary">Score {{ ipo.quant_score|floatformat:0 }}/100</span><span class="badge bg-light text-dark border">{{ ipo.risk_level }} risk</span></div>
+                    <div class="small fw-600 mb-2">{{ ipo.recommendation_label }}</div>
                     <div class="row g-0">
                         <div class="col-6 mb-2">
                             <small class="text-muted d-block x-small">Issue Size</small>
@@ -101,6 +115,7 @@
                     <small class="text-muted x-small">Opens: {{ ipo.open_date|date:"d M" }}</small>
                     <a href="{% url 'ipo_detail' ipo.id %}" class="btn btn-outline-primary btn-sm px-3 fw-600 x-small">Analyze &rarr;</a>
                 </div>
+                {% if user.is_authenticated %}<form method="post" action="{% if ipo.is_watchlisted %}{% url 'remove_from_watchlist' ipo.id %}{% else %}{% url 'add_to_watchlist' ipo.id %}{% endif %}" class="mt-2">{% csrf_token %}<button class="btn btn-sm {% if ipo.is_watchlisted %}btn-outline-danger{% else %}btn-outline-secondary{% endif %} w-100">{% if ipo.is_watchlisted %}Remove from watchlist{% else %}Add to watchlist{% endif %}</button></form>{% endif %}
             </div>
         </div>
     </div>

@@ -20,12 +20,26 @@
             --danger: #b91c1c;
             --warning: #b45309;
             --info: #0e6fa3;
-            --bg: #f4f6f9;
-            --surface: #ffffff;
-            --border: #dde2ea;
-            --text: #1e2533;
-            --text-muted: #6b7280;
+            --bg-primary: #f4f6f9;
+            --bg-surface: #ffffff;
+            --bg-surface-alt: #f8fafc;
+            --text-primary: #1e2533;
+            --text-secondary: #6b7280;
+            --border-color: #dde2ea;
+            --primary-color: #1a3a6b;
+            --success-color: #1e6e3e;
+            --warning-color: #b45309;
+            --danger-color: #b91c1c;
+            --shadow: 0 1px 3px rgba(15, 35, 65, 0.08);
+            --bg: var(--bg-primary);
+            --surface: var(--bg-surface);
+            --border: var(--border-color);
+            --text: var(--text-primary);
+            --text-muted: var(--text-secondary);
             --text-light: #9ca3af;
+            --bg-secondary: var(--bg-surface-alt);
+            --bg-card: var(--bg-surface);
+            --accent-color: var(--primary-color);
         }
 
         * {
@@ -39,6 +53,16 @@
             line-height: 1.55;
             font-size: 0.9rem;
         }
+        footer, .bg-white, .bg-light, .list-group-item, .form-control, .form-select, .input-group-text, .dropdown-menu, .modal-content { background-color: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; }
+        .text-muted, .form-text, .form-control::placeholder { color: var(--text-muted) !important; opacity: 1; }
+        .table, .table > :not(caption) > * > * { color: var(--text); border-color: var(--border); }
+        .table thead th, .table-hover tbody tr:hover { background: var(--bg-secondary); }
+        .btn-outline-secondary { color: var(--text); border-color: var(--border); }
+        .btn-outline-secondary:hover { background: var(--bg-secondary); color: var(--text); }
+        :focus-visible { outline: 3px solid var(--primary-light); outline-offset: 2px; }
+        .auth-page { background: var(--bg-primary) !important; }
+        .auth-divider { display:flex; align-items:center; gap:.75rem; margin:1.25rem 0; color:var(--text-muted); }
+        .auth-divider::before,.auth-divider::after { content:""; height:1px; flex:1; background:var(--border); }
 
         /* ── Navbar ── */
         .navbar {
@@ -243,6 +267,10 @@
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1) !important;
         }
 
+        .page-heading { margin-bottom: 1.75rem; }
+        .page-heading h1 { color: var(--text-primary); font-weight: 700; letter-spacing: -0.02em; }
+        .eyebrow { color: var(--primary-color); font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+
         /* ── Scrollbar ── */
         ::-webkit-scrollbar {
             width: 6px;
@@ -262,7 +290,7 @@
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+    <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container">
             <a class="navbar-brand" href="{% url 'index' %}">
                 <i class="fas fa-chart-line me-2"></i>IPO Platform
@@ -272,14 +300,12 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="{% url 'index' %}">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'ipo_list' %}">Browse IPOs</a></li>
                     {% if user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
                             href="{% url 'dashboard' %}">Dashboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'ipo_list' %}active{% endif %}"
-                            href="{% url 'ipo_list' %}">Browse IPOs</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'recommendations' %}active{% endif %}"
@@ -350,6 +376,12 @@
             <p class="text-muted mb-0">&copy; 2026 IPO Investment Platform &mdash; AI-powered analysis for Indian
                 markets.</p>
             <div class="d-flex gap-3">
+                <a href="{% url 'about' %}" class="text-muted text-decoration-none x-small">About</a>
+                <a href="{% url 'how_it_works' %}" class="text-muted text-decoration-none x-small">How It Works</a>
+                <a href="{% url 'terms' %}" class="text-muted text-decoration-none x-small">Terms</a>
+                <a href="{% url 'privacy' %}" class="text-muted text-decoration-none x-small">Privacy</a>
+                <a href="{% url 'disclaimer' %}" class="text-muted text-decoration-none x-small">Disclaimer</a>
+                <a href="{% url 'contact' %}" class="text-muted text-decoration-none x-small">Contact</a>
                 {% if user.is_authenticated %}
                 <a href="{% url 'dashboard' %}" class="text-muted text-decoration-none x-small">Dashboard</a>
                 <a href="{% url 'ipo_list' %}" class="text-muted text-decoration-none x-small">Browse</a>

@@ -48,7 +48,7 @@ class Company(models.Model):
         return self.name
 
 class InvestorProfile(models.Model):
-    PERSONA_CHOICES = [('conservative', 'Conservative'), ('moderate', 'Moderate'), ('aggressive', 'Aggressive')]
+    PERSONA_CHOICES = [('conservative', 'Conservative'), ('moderate', 'Moderate / Balanced'), ('balanced', 'Balanced'), ('growth', 'Growth'), ('aggressive', 'Aggressive')]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='investor_profile')
     persona = models.CharField(max_length=20, choices=PERSONA_CHOICES, default='moderate')
     min_investment = models.DecimalField(max_digits=12, decimal_places=2, default=10000)
@@ -58,6 +58,7 @@ class InvestorProfile(models.Model):
     investment_horizon = models.CharField(max_length=20, choices=[('short', 'Short-term'), ('medium', 'Medium-term'), ('long', 'Long-term')], default='medium')
     portfolio_value = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     years_investing = models.IntegerField(default=0)
+    onboarding_completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     def __str__(self):
@@ -65,14 +66,18 @@ class InvestorProfile(models.Model):
     def get_risk_parameters(self):
         if self.persona == 'conservative':
             return {'max_volatility': 15.0, 'max_debt_to_equity': 0.5, 'min_roe': 10.0}
-        elif self.persona == 'moderate':
+        elif self.persona in ('moderate', 'balanced'):
             return {'max_volatility': 25.0, 'max_debt_to_equity': 1.5, 'min_roe': 8.0}
+        elif self.persona == 'growth':
+            return {'max_volatility': 35.0, 'max_debt_to_equity': 2.5, 'min_roe': 6.0}
         else:
             return {'max_volatility': 40.0, 'max_debt_to_equity': 3.0, 'min_roe': 5.0}
     def get_persona_strategy(self):
         strategies = {
             'conservative': {'name': 'Conservative Growth', 'target_allocation': {'blue_chip': 60, 'mid_cap': 30, 'emerging': 10}, 'min_rating_threshold': 70},
             'moderate': {'name': 'Balanced Growth', 'target_allocation': {'blue_chip': 40, 'mid_cap': 40, 'emerging': 20}, 'min_rating_threshold': 55},
+            'balanced': {'name': 'Balanced Risk-Adjusted', 'target_allocation': {'blue_chip': 40, 'mid_cap': 40, 'emerging': 20}, 'min_rating_threshold': 55},
+            'growth': {'name': 'Growth with Risk Guardrails', 'target_allocation': {'blue_chip': 25, 'mid_cap': 40, 'emerging': 35}, 'min_rating_threshold': 50},
             'aggressive': {'name': 'Growth Maximization', 'target_allocation': {'blue_chip': 20, 'mid_cap': 40, 'emerging': 40}, 'min_rating_threshold': 40}
         }
         return strategies.get(self.persona, strategies['moderate'])
@@ -131,3 +136,20 @@ class Watchlist(models.Model):
         return f"Watchlist - {self.user.username}"
     class Meta:
         verbose_name_plural = "Watchlists"
+
+
+class SavedPortfolio(models.Model):
+    """A user-owned snapshot of a generated portfolio, safe to retain over time."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_portfolios')
+    name = models.CharField(max_length=120)
+    investor_persona = models.CharField(max_length=20, choices=InvestorProfile.PERSONA_CHOICES)
+    optimization_method = models.CharField(max_length=40)
+    allocations = models.JSONField(default=list)
+    metrics = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} — {self.user.username}"

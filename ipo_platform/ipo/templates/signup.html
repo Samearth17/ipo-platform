@@ -1,7 +1,8 @@
 {% extends "base.html" %}
+{% load socialaccount %}
 {% block title %}Sign Up - IPO Platform{% endblock %}
 {% block content %}
-<div class="min-vh-100 d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);">
+<div class="auth-page min-vh-100 d-flex align-items-center justify-content-center">
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-md-5">
@@ -117,6 +118,8 @@
                                     </a>
                                 </div>
                             </form>
+                            <div class="auth-divider"><span>or</span></div>
+                            <a id="google-signup" href="{% provider_login_url 'google' %}" class="btn btn-outline-secondary w-100" aria-label="Continue with Google"><i class="fab fa-google me-2"></i>Sign up with Google</a>
                         </div>
                     </div>
                 </div>

@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from concurrent.futures import ThreadPoolExecutor
 import json
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class MarketDataService:
     
     # Alpha Vantage API
     ALPHA_VANTAGE_URL = "https://www.alphavantage.co/query"
-    ALPHA_VANTAGE_API_KEY = "LT5T71JS0INE54G2"
+    ALPHA_VANTAGE_API_KEY = os.environ.get("ALPHA_VANTAGE_API_KEY")
     
     # Yahoo Finance (via rapidapi)
     YAHOO_FINANCE_URL = "https://yahoo-finance97.p.rapidapi.com/"
@@ -48,11 +49,15 @@ class MarketDataService:
             cls._set_cache(cache_key, data)
             return data
         
-        logger.info(f"Using simulation for {symbol}")
-        return cls._simulate_market_feed(symbol)
+        if os.environ.get("DEMO_DATA", "false").lower() == "true":
+            logger.warning("Using DEMO/SAMPLE market data for %s", symbol)
+            return cls._simulate_market_feed(symbol)
+        return {}
     
     @classmethod
     def _fetch_from_alpha_vantage(cls, symbol: str) -> Optional[Dict]:
+        if not cls.ALPHA_VANTAGE_API_KEY:
+            return None
         try:
             params = {
                 "function": "OVERVIEW",
@@ -473,4 +478,3 @@ def enrich_ipo_data(ipo, market_data: Dict = None) -> Dict:
         'low_52w': market_data.get('low_52w'),
         'last_updated': market_data.get('last_updated')
     }
-

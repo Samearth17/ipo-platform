@@ -16,6 +16,7 @@
     {% endif %}
 </div>
 {% if portfolio %}
+<form method="post" action="{% url 'save_current_portfolio' %}" class="mb-3">{% csrf_token %}<input type="hidden" name="optimization_method" value="current_allocation"><button class="btn btn-outline-primary btn-sm">Save this portfolio</button></form>
 <div class="row g-3 mb-4">
     <div class="col-md-3">
         <div class="card stat-card border-top border-primary border-4 h-100">
@@ -141,7 +142,7 @@
         {% if portfolio %}
         const ctx = document.getElementById("sectorChart");
         if (ctx) {
-            new Chart(ctx, {
+            const chart = new Chart(ctx, {
                 type: "doughnut",
                 data: {
                     labels: [{% for rec in recommendations %}"{{ rec.ipo.company_name|escapejs }}",{% endfor %}],

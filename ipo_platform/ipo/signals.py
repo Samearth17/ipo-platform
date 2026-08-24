@@ -3,10 +3,16 @@ from django.dispatch import receiver
 from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth.models import User
-from .models import IPO, Watchlist
+from .models import IPO, Watchlist, InvestorProfile
 import logging
 
 logger = logging.getLogger(__name__)
+
+@receiver(post_save, sender=User)
+def create_investor_profile(sender, instance, created, **kwargs):
+    """Every account, including Google OAuth accounts, gets an isolated profile."""
+    if created:
+        InvestorProfile.objects.get_or_create(user=instance)
 
 @receiver(post_save, sender=IPO)
 def notify_new_ipo(sender, instance, created, **kwargs):

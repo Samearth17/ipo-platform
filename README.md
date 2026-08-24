@@ -1,158 +1,102 @@
-# IPO Analytics Platform
+# Quantitative IPO Recommendation & Portfolio Optimization Platform
 
 ## Overview
 
-The IPO Analytics Platform is a Django-based web application built to help investors analyze, track, and optimize IPO investments in a structured and data-driven way.
-The platform combines financial analysis, sentiment evaluation, and portfolio optimization techniques inspired by Modern Portfolio Theory (MPT). Instead of simply listing IPOs, it provides risk assessment, scoring, and allocation recommendations tailored to different investor profiles.
+A Django application for explainable IPO scoring, investor-personalized recommendations, historical-return risk analysis, interpretable performance prediction, and constrained long-only portfolio allocation. It is an analytics/demo platform, not investment advice.
 
 ## Core Features
 
-### Dashboards
-The platform includes multiple dashboards designed to provide clarity and actionable insights:
+- Canonical 0–100 IPO score with component explanations.
+- Risk metrics: annualized volatility, beta, Sharpe, Sortino, drawdown, VaR 95/99, and market correlation when price series are supplied.
+- Investor profiles: Conservative, Balanced, Growth, and Aggressive.
+- Linear regression for post-listing return with a held-out test split and MAE/RMSE/R².
+- Equal-weight, score-weighted, minimum-volatility, and maximum-Sharpe portfolio methods.
+- Multi-user dashboard, private watchlists, saved portfolio snapshots, and Google sign-in.
 
-**Main Dashboard**
-Displays an overview of major market indices such as NIFTY 50 and SENSEX, along with curated IPO suggestions based on the user’s selected risk profile.
+## Google OAuth and user accounts
 
-**Risk Dashboard**
-Breaks down portfolio volatility, Value at Risk (VaR), and risk-adjusted performance metrics to help users understand downside exposure.
+The application uses `django-allauth` with Google’s identity-only `openid`, `email`, and `profile` scopes. Configure a **Web application** OAuth client in Google Cloud and add this authorised redirect URI exactly:
 
-**Sentiment Dashboard**
-Tracks overall market sentiment and public perception of upcoming IPOs using sentiment analysis techniques applied to news and social signals.
-
-
-### Recommendation System
-
-IPOs are evaluated using a structured scoring model:
-
-* Financial Health – 40%
-* Growth Potential – 30%
-* Risk Factors – 30%
-
-Each IPO receives a score between 0 and 100. Recommendations are aligned with the selected investor persona:
-
-* Conservative
-* Balanced
-* Growth
-* Aggressive
-
-This ensures that suggestions are not generic but tailored to individual risk preferences.
-
-
-
-### Portfolio Optimization
-
-The platform includes a portfolio optimization module that:
-
-* Suggests capital allocation across selected IPOs
-* Attempts to maximize expected returns while respecting risk tolerance
-* Applies principles inspired by Modern Portfolio Theory
-
-It also supports stress testing scenarios, such as:
-
-* Simulated market crashes (e.g., -20%)
-* Sector-specific downturns
-
-This helps users evaluate how resilient their portfolio may be under adverse conditions.
-
-
-
-## Technology Stack
-
-* Backend: Django 4.2 (Python)
-* Database: SQLite (Development) / PostgreSQL (Production)
-* Frontend: Bootstrap 5
-* Financial Analysis: NumPy, Pandas
-* Market Data: Integrated with NSE/BSE data sources
-
-
-
-## Installation and Setup
-
-1. Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/ipo-platform.git
-cd ipo-platform
+```text
+http://127.0.0.1:8000/accounts/google/login/callback/
 ```
 
-2. Create a virtual environment:
+Create a local `.env` from `.env.example` and provide `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Never commit either value. OAuth accounts receive an isolated investor profile and are sent to persona onboarding on first sign-in.
+
+Private records are always queried by `request.user`; saved-portfolio detail/delete routes return 404 for another account.
+
+## Architecture
+
+`ipo/analytics/scoring.py` is the single scoring authority. `risk_assessment.py`, `prediction.py`, and `portfolio_optimization.py` contain the quantitative services; views and APIs call `RecommendationEngine` and these services rather than embedding formulas.
+
+## Quantitative Scoring Model
+
+Every component is normalized to 0–100 and the weighted total is 0–100:
+
+| Component | Weight |
+|---|---:|
+| Financial health | 20% |
+| Growth | 15% |
+| Valuation | 15% |
+| Risk / safety | 15% |
+| Quality | 10% |
+| Momentum | 10% |
+| ESG | 5% |
+| Management | 10% |
+
+Risk uses the safety convention: 100 is very low risk and 0 is very high risk.
+
+## Risk Analytics
+
+For a supplied price series, daily return is `P[t] / P[t-1] - 1`; volatility is sample standard deviation annualized by `sqrt(252)`. Sharpe and Sortino use a 5% annual risk-free assumption. VaR is historical 5th/1st percentile loss, and maximum drawdown is peak-to-trough loss. IPOs without historical prices use only stored volatility and explicitly label the fallback.
+
+## ML Prediction
+
+The experimental model uses complete rows containing ROE, ROA, revenue growth, debt/equity, P/E, market cap, and issue size. The target is post-listing return from listing price to current price. Rows with missing features are excluded; fewer than five rows yields no prediction. With enough rows, a `LinearRegression` model is evaluated on a held-out split and exposes MAE, RMSE, and R².
+
+## Portfolio Optimization
+
+Weights are long-only, sum to one, and are capped at 40% per asset. Expected returns come from historical returns when present, otherwise current-vs-listing return or zero when unavailable. Covariance is `w.T @ covariance @ w`; volatility is its square root and Sharpe is `(return - risk_free_rate) / volatility`. Fallbacks are returned in `data_note` and are not historical performance claims.
+
+## Investor Profiles
+
+Conservative selects minimum volatility; Balanced uses maximum Sharpe; Growth uses maximum Sharpe with a looser compatibility filter; Aggressive tolerates more risk and emphasizes growth. Profile constraints are visible in recommendation rationale.
+
+## Tech Stack
+
+Django, Django REST Framework, PostgreSQL in production, SQLite locally, NumPy, SciPy, scikit-learn, WhiteNoise, and Gunicorn.
+
+## Local Setup
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+cd ipo_platform
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r ../requirements.txt
+python manage.py migrate
+python manage.py seed_demo_data   # optional; clearly labelled sample data
+python manage.py runserver
 ```
 
-3. Install dependencies:
+## Environment Variables
+
+Local defaults are available for SQLite development. Production requires `SECRET_KEY`, `DEBUG`, `DATABASE_URL`, and comma-separated `ALLOWED_HOSTS`. Optional integrations use `ALPHA_VANTAGE_API_KEY` and `DEMO_DATA=true` only when sample market responses are intentionally desired.
+
+Google login additionally requires `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+
+## Deployment on Render
+
+Use the included `render.yaml`, or configure:
 
 ```bash
 pip install -r requirements.txt
+python ipo_platform/manage.py migrate --noinput
+python ipo_platform/manage.py collectstatic --noinput
+gunicorn ipo_platform.wsgi:application --chdir ipo_platform
 ```
 
-4. Apply migrations:
+Set `DJANGO_SETTINGS_MODULE=ipo_platform.settings_production`, `SECRET_KEY`, `DATABASE_URL` from Render PostgreSQL, `DEBUG=false`, and `ALLOWED_HOSTS=your-service.onrender.com`. Do not commit secrets.
 
-```bash
-python3 manage.py migrate
-```
+## Limitations
 
-5. Populate the database with sample IPO and market data:
-
-```bash
-python3 manage.py populate_db
-```
-
-6. Run the development server:
-
-```bash
-python3 manage.py runserver
-```
-
-Access the application at:
-http://127.0.0.1:8000
-
-
-## Project Structure
-
-```
-ipo_platform/
-├── manage.py
-├── ipo_platform/
-│   ├── settings.py
-│   └── urls.py
-└── ipo/
-    ├── models.py
-    ├── views.py
-    ├── risk_assessment.py
-    ├── recommendation_engine.py
-    ├── portfolio_optimization.py
-    └── templates/
-```
-
-* `models.py` defines database schemas such as IPO and InvestorProfile.
-* `views.py` contains logic for dashboards and data rendering.
-* `risk_assessment.py` handles volatility and Value at Risk calculations.
-* `recommendation_engine.py` implements IPO scoring logic.
-* `portfolio_optimization.py` handles capital allocation using MPT principles.
-
-
-## Architecture Overview
-
-The platform follows a modular architecture:
-
-**Data Layer**
-Responsible for fetching and normalizing raw market and IPO data.
-
-**Intelligence Layer**
-Processes financial data, computes risk metrics, generates scores, and performs portfolio optimization.
-
-**Presentation Layer**
-Django views render structured and responsive Bootstrap templates for user interaction.
-
-This separation ensures scalability and maintainability.
-
-## Contribution Guidelines
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push the branch and open a Pull Request
-
+The repository schema does not yet persist daily prices, so historical analytics and covariance optimization require an attached/imported price series; field-based fallbacks are explicitly labelled. The ML model is experimental and its metrics depend on the available listed IPO sample. Demo data is not live market data.
