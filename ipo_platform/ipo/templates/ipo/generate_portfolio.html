@@ -28,10 +28,33 @@
                     <div class="alert alert-info d-flex align-items-center" role="alert">
                         <i class="fas fa-info-circle me-3" style="font-size: 1.2rem;"></i>
                         <div>
-                            <strong>Your Strategy:</strong> {{ profile.get_persona_display }} Investor
+                            <strong>Saved Strategy:</strong> {{ profile.get_persona_display }} Investor
                             <br><small style="opacity: 0.9;">{{ strategy.name }}</small>
                         </div>
                     </div>
+                </div>
+                <div class="mb-4">
+                    <label for="persona" class="form-label fw-600">
+                        <i class="fas fa-user-shield me-2"></i>Investor Profile for This Generation
+                    </label>
+                    <select class="form-select" name="persona" id="persona">
+                        <option value="conservative" {% if profile.persona == 'conservative' %}selected{% endif %}>Conservative</option>
+                        <option value="balanced" {% if profile.persona == 'balanced' %}selected{% endif %}>Balanced</option>
+                        <option value="growth" {% if profile.persona == 'growth' %}selected{% endif %}>Growth</option>
+                        <option value="aggressive" {% if profile.persona == 'aggressive' %}selected{% endif %}>Aggressive</option>
+                    </select>
+                    <small class="text-muted mt-2 d-block">This changes this portfolio only. Your saved profile is not changed.</small>
+                </div>
+                <div class="mb-4">
+                    <label for="optimization_method" class="form-label fw-600">
+                        <i class="fas fa-bullseye me-2"></i>Optimization Method
+                    </label>
+                    <select class="form-select" name="optimization_method" id="optimization_method">
+                        <option value="min_volatility">Minimum Volatility</option>
+                        <option value="max_sharpe">Maximum Sharpe</option>
+                        <option value="equal_weight">Equal Weight</option>
+                        <option value="score_weighted">Score Weighted</option>
+                    </select>
                 </div>
                 <div class="mb-4">
                     <label for="allocation_amount" class="form-label fw-600">
@@ -169,6 +192,21 @@
     </div>
 </div>
 <script>
+    const personaSelect = document.getElementById('persona');
+    const methodSelect = document.getElementById('optimization_method');
+    let methodManuallySelected = false;
+    const defaultMethods = {
+        conservative: 'min_volatility',
+        balanced: 'max_sharpe',
+        growth: 'max_sharpe',
+        aggressive: 'max_sharpe'
+    };
+    methodSelect.addEventListener('change', function () { methodManuallySelected = true; });
+    personaSelect.addEventListener('change', function () {
+        if (!methodManuallySelected) methodSelect.value = defaultMethods[this.value] || 'max_sharpe';
+    });
+    methodSelect.value = defaultMethods[personaSelect.value] || 'max_sharpe';
+
     // Update diversification display
     document.getElementById('diversification').addEventListener('change', function () {
         const value = this.value;

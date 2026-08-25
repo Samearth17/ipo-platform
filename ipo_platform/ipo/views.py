@@ -16,6 +16,7 @@ from django.utils import timezone
 from .models import IPO, InvestorProfile, Recommendation, PortfolioRecommendation, Watchlist, SavedPortfolio
 from .recommendation_engine import RecommendationEngine, IPOScorer
 from .portfolio_optimization import PortfolioOptimizer
+from .personalization import effective_method, effective_profile
 from .market_data_service import MarketDataService, enrich_ipo_data
 from .sentiment_analysis import SentimentAnalyzer, SocialMediaAnalyzer
 from .risk_assessment import RiskAssessor, PortfolioRiskAnalyzer
@@ -144,7 +145,6 @@ def dashboard(request):
     if not profile.onboarding_completed:
         return redirect('create_profile')
     
-    # Get recommendations
     engine = RecommendationEngine(profile)
     recommendations = engine.get_top_recommendations(IPO.objects.all(), limit=5)
     
@@ -431,8 +431,9 @@ def recommendations(request):
     sector_filter = request.GET.get('sector', '')
     sort_by = request.GET.get('sort', '-overall_score')
     
-    # Get recommendations
-    engine = RecommendationEngine(profile)
+    # A request-time persona overrides the saved profile for this view only.
+    recommendation_profile, effective_persona = effective_profile(profile, request.GET.get('persona'))
+    engine = RecommendationEngine(recommendation_profile)
     all_recommendations = engine.get_filtered_recommendations(
         IPO.objects.all(),
         filters={
@@ -486,6 +487,8 @@ def recommendations(request):
     
     context = {
         'profile': profile,
+        'effective_persona': effective_persona,
+        'effective_persona_label': recommendation_profile.get_persona_display(),
         'recommendations': formatted_recs,
         'total_count': total_recs,
         'avg_score': round(avg_score, 2),
@@ -540,7 +543,7 @@ def portfolio(request):
             })
         
         analyzer = PortfolioRiskAnalyzer()
-        risk_analysis = analyzer.analyze_portfolio_risk(holdings, float(profile.max_investment))
+        risk_analysis = analyzer.analyze_portfolio_risk(holdings, float(portfolio_obj.total_allocation))
         
         # Stress test scenarios
         scenarios = {
@@ -553,6 +556,15 @@ def portfolio(request):
         risk_analysis = None
         stress_results = None
     
+    generation = request.session.get('last_portfolio_generation')
+    if portfolio_obj and not generation:
+        generation = {
+            'persona': profile.persona,
+            'persona_label': profile.get_persona_display(),
+            'capital': float(portfolio_obj.total_allocation),
+            'method': 'Previously generated allocation',
+        }
+
     context = {
         'profile': profile,
         'portfolio': portfolio_obj,
@@ -560,7 +572,8 @@ def portfolio(request):
         'has_portfolio': has_portfolio,
         'total_count': top_recommendations.count() if top_recommendations else 0,
         'risk_analysis': risk_analysis,
-        'stress_results': stress_results
+        'stress_results': stress_results,
+        'generation': generation,
     }
     
     return render(request, 'ipo/portfolio.html', context)
@@ -576,8 +589,23 @@ def generate_portfolio(request):
         return redirect('create_profile')
     
     if request.method == 'POST':
-        allocation = float(request.POST.get('allocation_amount', 100000))
-        diversification = int(request.POST.get('diversification', 5))
+        try:
+            allocation = float(request.POST.get('allocation_amount', 100000))
+        except (TypeError, ValueError):
+            allocation = float(profile.max_investment)
+        try:
+            diversification = int(request.POST.get('diversification', 5))
+        except (TypeError, ValueError):
+            diversification = 5
+
+        generation_profile, effective_persona = effective_profile(profile, request.POST.get('persona'))
+        optimization_method = effective_method(request.POST.get('optimization_method'), effective_persona)
+        logger.debug(
+            'Portfolio generation inputs: request_persona=%s request_capital=%s '
+            'effective_persona=%s effective_capital=%s optimization_method=%s',
+            request.POST.get('persona'), request.POST.get('allocation_amount'),
+            effective_persona, allocation, optimization_method,
+        )
         
         status_filter = []
         if request.POST.get('include_upcoming'):
@@ -592,8 +620,11 @@ def generate_portfolio(request):
         
         ipos = IPO.objects.filter(status__in=status_filter)
         
-        optimizer = PortfolioOptimizer(profile)
-        portfolio_data = optimizer.optimize_portfolio(ipos, allocation_amount=allocation, diversification=diversification)
+        optimizer = PortfolioOptimizer(generation_profile)
+        portfolio_data = optimizer.optimize_portfolio(
+            ipos, allocation_amount=allocation, diversification=diversification,
+            method=optimization_method,
+        )
         
         if portfolio_data['success']:
             portfolio_obj, _ = PortfolioRecommendation.objects.get_or_create(
@@ -627,6 +658,14 @@ def generate_portfolio(request):
             portfolio_obj.portfolio_risk = portfolio_data['metrics']['portfolio_risk']
             portfolio_obj.diversification_score = portfolio_data['metrics']['diversification_score']
             portfolio_obj.save()
+
+            request.session['last_portfolio_generation'] = {
+                'persona': effective_persona,
+                'persona_label': generation_profile.get_persona_display(),
+                'capital': allocation,
+                'method': portfolio_data['strategy'],
+            }
+            request.session.modified = True
             
             messages.success(request, "Portfolio generated successfully!")
             return redirect('portfolio')

@@ -180,3 +180,89 @@ class MultiUserProductTests(TestCase):
         self.assertContains(response, 'href="/accounts/google/login/"')
         self.assertNotContains(response, 'theme-toggle')
         self.assertNotContains(response, 'ipo-theme')
+
+
+class PersonalizationIntegrationTests(TestCase):
+    def setUp(self):
+        self.ipos = [
+            IPO.objects.create(
+                company_name=f'Portfolio Co {index}', symbol=f'PORT{index}',
+                price_band='90-100', open_date=date.today(), close_date=date.today(),
+                status='UPCOMING', issue_size=100, sector='Technology',
+                listing_price=100, current_price=110 + index,
+                market_cap=1000, pe_ratio=20, roe=15, roa=8,
+                volatility=10 + index, revenue_growth=20,
+                debt_to_equity=0.2, esg_score=70, management_quality=75,
+                brand_moat=65,
+            ) for index in range(1, 4)
+        ]
+        self.user = User.objects.create_user(username='portfolio-user', password='password123')
+        self.profile = self.user.investor_profile
+        self.profile.persona = 'aggressive'
+        self.profile.onboarding_completed = True
+        self.profile.save(update_fields=['persona', 'onboarding_completed'])
+        self.client.login(username='portfolio-user', password='password123')
+
+    def _generate(self, persona, capital, method=None):
+        payload = {
+            'persona': persona,
+            'allocation_amount': capital,
+            'diversification': 3,
+            'include_upcoming': 'on',
+        }
+        if method:
+            payload['optimization_method'] = method
+        response = self.client.post('/portfolio/generate/', payload)
+        self.assertEqual(response.status_code, 302)
+        portfolio = self.profile.portfolio_recommendation
+        generation = self.client.session['last_portfolio_generation']
+        return portfolio, generation
+
+    def test_current_persona_overrides_saved_profile_without_mutating_it(self):
+        portfolio, generation = self._generate('conservative', 100000)
+        self.assertEqual(generation['persona'], 'conservative')
+        self.assertEqual(generation['method'], 'min_volatility')
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.persona, 'aggressive')
+        page = self.client.get('/portfolio/')
+        self.assertContains(page, 'Investor profile used: <strong>Conservative</strong>')
+        self.assertContains(page, 'Capital used: <strong>₹100000</strong>')
+
+    def test_sequential_persona_requests_use_new_values(self):
+        expected = [
+            ('aggressive', 'max_sharpe'),
+            ('conservative', 'min_volatility'),
+            ('growth', 'max_sharpe'),
+            ('balanced', 'max_sharpe'),
+        ]
+        for persona, method in expected:
+            _, generation = self._generate(persona, 100000)
+            self.assertEqual(generation['persona'], persona)
+            self.assertEqual(generation['method'], method)
+
+    def test_capital_changes_allocated_amounts_without_changing_weights(self):
+        first_portfolio, _ = self._generate('conservative', 100000)
+        first = {
+            rec.ipo_id: (float(rec.weight), float(rec.allocated_amount))
+            for rec in first_portfolio.top_recommendations.all()
+        }
+        second_portfolio, generation = self._generate('conservative', 50000)
+        second = {
+            rec.ipo_id: (float(rec.weight), float(rec.allocated_amount))
+            for rec in second_portfolio.top_recommendations.all()
+        }
+        self.assertEqual(generation['capital'], 50000)
+        self.assertEqual(set(first), set(second))
+        for ipo_id in first:
+            self.assertAlmostEqual(first[ipo_id][0], second[ipo_id][0], places=6)
+            self.assertAlmostEqual(second[ipo_id][1], first[ipo_id][1] / 2, places=2)
+
+    def test_recommendation_api_honors_request_persona(self):
+        response = self.client.get('/api/recommendations/?persona=conservative&min_score=0')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['persona'], 'conservative')
+
+    def test_recommendation_page_honors_request_persona(self):
+        response = self.client.get('/recommendations/?persona=conservative')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'for your <strong>Conservative</strong> strategy')

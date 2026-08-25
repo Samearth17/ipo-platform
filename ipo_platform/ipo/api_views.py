@@ -11,6 +11,7 @@ from django.utils.decorators import method_decorator
 
 from .models import IPO, InvestorProfile, Recommendation, PortfolioRecommendation
 from .recommendation_engine import RecommendationEngine, PortfolioOptimizer
+from .personalization import effective_method, effective_profile
 from .market_data_service import MarketDataService, TechnicalIndicatorService
 from .sentiment_analysis import SentimentAnalyzer, SocialMediaAnalyzer
 from .risk_assessment import RiskAssessor, PortfolioRiskAnalyzer
@@ -88,7 +89,8 @@ class RecommendationAPI(APIView):
         max_volatility = float(request.GET.get('max_volatility', 100))
         only_compatible = request.GET.get('only_compatible', 'false').lower() == 'true'
         
-        engine = RecommendationEngine(profile)
+        recommendation_profile, effective_persona = effective_profile(profile, request.GET.get('persona'))
+        engine = RecommendationEngine(recommendation_profile)
         recommendations = engine.get_filtered_recommendations(
             IPO.objects.all(),
             filters={
@@ -122,7 +124,7 @@ class RecommendationAPI(APIView):
         return Response({
             "recommendations": data,
             "count": len(data),
-            "persona": profile.persona
+            "persona": effective_persona
         })
 
 
@@ -142,7 +144,8 @@ class TopRecommendationsAPI(APIView):
         
         limit = int(request.GET.get('limit', 5))
         
-        engine = RecommendationEngine(profile)
+        recommendation_profile, effective_persona = effective_profile(profile, request.GET.get('persona'))
+        engine = RecommendationEngine(recommendation_profile)
         top_recs = engine.get_top_recommendations(IPO.objects.all(), limit=limit)
         
         data = [{
@@ -152,7 +155,7 @@ class TopRecommendationsAPI(APIView):
             'expected_return': rec.get('predicted_return', rec['overall_score'] * 0.8)
         } for rec in top_recs]
         
-        return Response({"top_recommendations": data})
+        return Response({"top_recommendations": data, "persona": effective_persona})
 
 
 @method_decorator(login_required, name='dispatch')
@@ -170,9 +173,11 @@ class PortfolioOptimizationAPI(APIView):
             )
         
         allocation = float(request.GET.get('allocation', profile.max_investment))
-        
-        optimizer = PortfolioOptimizer(profile)
-        result = optimizer.optimize_portfolio(allocation_amount=allocation)
+        portfolio_profile, effective_persona = effective_profile(profile, request.GET.get('persona'))
+        optimization_method = effective_method(request.GET.get('optimization_method'), effective_persona)
+
+        optimizer = PortfolioOptimizer(portfolio_profile)
+        result = optimizer.optimize_portfolio(allocation_amount=allocation, method=optimization_method)
         
         if result['success']:
             portfolio_data = [{
@@ -188,7 +193,9 @@ class PortfolioOptimizationAPI(APIView):
                 "success": True,
                 "portfolio": portfolio_data,
                 "metrics": result['metrics'],
-                "strategy": result['strategy']
+                "strategy": result['strategy'],
+                "persona": effective_persona,
+                "capital": allocation,
             })
         else:
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
@@ -203,10 +210,13 @@ class PortfolioOptimizationAPI(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        allocation = float(request.POST.get('allocation', profile.max_investment))
-        
-        optimizer = PortfolioOptimizer(profile)
-        result = optimizer.optimize_portfolio(allocation_amount=allocation)
+        request_data = request.data if hasattr(request, 'data') else request.POST
+        allocation = float(request_data.get('allocation', profile.max_investment))
+        portfolio_profile, effective_persona = effective_profile(profile, request_data.get('persona'))
+        optimization_method = effective_method(request_data.get('optimization_method'), effective_persona)
+
+        optimizer = PortfolioOptimizer(portfolio_profile)
+        result = optimizer.optimize_portfolio(allocation_amount=allocation, method=optimization_method)
         
         if result['success']:
             # Save to database
@@ -241,7 +251,10 @@ class PortfolioOptimizationAPI(APIView):
             return Response({
                 "success": True,
                 "message": "Portfolio generated successfully",
-                "portfolio_id": portfolio_obj.id
+                "portfolio_id": portfolio_obj.id,
+                "persona": effective_persona,
+                "capital": allocation,
+                "strategy": result['strategy'],
             })
         else:
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
