@@ -82,7 +82,11 @@ python manage.py runserver
 
 Local defaults are available for SQLite development. Production requires `SECRET_KEY`, `DEBUG`, `DATABASE_URL`, and comma-separated `ALLOWED_HOSTS`. Optional integrations use `ALPHA_VANTAGE_API_KEY` and `DEMO_DATA=true` only when sample market responses are intentionally desired.
 
-Google login additionally requires `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+Google login requires the exact environment variable names `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET`. Local development may load these from the uncommitted
+`.env` file. Production settings read them directly from Render's environment;
+they are required and production startup fails with a safe configuration error if
+either is missing.
 
 ## Deployment on Render
 
@@ -95,7 +99,11 @@ python ipo_platform/manage.py collectstatic --noinput
 gunicorn ipo_platform.wsgi:application --chdir ipo_platform
 ```
 
-Set `DJANGO_SETTINGS_MODULE=ipo_platform.settings_production`, `SECRET_KEY`, `DATABASE_URL` from Render PostgreSQL, `DEBUG=false`, and `ALLOWED_HOSTS=your-service.onrender.com`. Do not commit secrets.
+Set `DJANGO_SETTINGS_MODULE=ipo_platform.settings_production`, `SECRET_KEY`,
+`DATABASE_URL` from Render PostgreSQL, `DEBUG=false`, `ALLOWED_HOSTS=your-service.onrender.com`,
+`GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`. Do not commit secrets. Add
+`https://your-service.onrender.com/accounts/google/login/callback/` to the Google
+OAuth client's authorized redirect URIs.
 
 ## Limitations
 

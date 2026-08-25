@@ -1,4 +1,8 @@
+import os
+import subprocess
+import sys
 from types import SimpleNamespace
+from urllib.parse import parse_qs, urlparse
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.contrib.auth.models import User
 from datetime import date
@@ -118,10 +122,56 @@ class MultiUserProductTests(TestCase):
         provider = settings.SOCIALACCOUNT_PROVIDERS['google']
         self.assertIn('client_id', provider['APP'])
         self.assertTrue(provider['APP']['client_id'])
-        self.client.get('/accounts/google/login/')
-        response = self.client.post('/accounts/google/login/')
+        self.client.get('/accounts/google/login/', HTTP_HOST='127.0.0.1:8000')
+        response = self.client.post('/accounts/google/login/', HTTP_HOST='127.0.0.1:8000')
         self.assertEqual(response.status_code, 302)
-        self.assertIn('client_id=test-client-id', response['Location'])
+        query = parse_qs(urlparse(response['Location']).query)
+        self.assertEqual(query['client_id'], ['test-client-id'])
+        self.assertEqual(query['redirect_uri'], ['http://127.0.0.1:8000/accounts/google/login/callback/'])
+
+    def test_production_settings_populate_google_provider_from_environment(self):
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        env = os.environ.copy()
+        env.update({
+            'DJANGO_SETTINGS_MODULE': 'ipo_platform.settings_production',
+            'SECRET_KEY': 'test-production-secret-key',
+            'DATABASE_URL': 'postgresql://user:password@localhost/ipo_test',
+            'ALLOWED_HOSTS': 'test.onrender.com',
+            'GOOGLE_CLIENT_ID': 'test-production-client-id',
+            'GOOGLE_CLIENT_SECRET': 'test-production-client-secret',
+        })
+        script = (
+            'from ipo_platform import settings_production as s; '
+            "assert s.GOOGLE_CLIENT_ID == 'test-production-client-id'; "
+            "assert s.GOOGLE_CLIENT_SECRET == 'test-production-client-secret'; "
+            "assert s.SOCIALACCOUNT_PROVIDERS['google']['APP']['client_id'] == s.GOOGLE_CLIENT_ID; "
+            "assert s.SOCIALACCOUNT_PROVIDERS['google']['APP']['secret'] == s.GOOGLE_CLIENT_SECRET"
+        )
+        result = subprocess.run(
+            [sys.executable, '-c', script], cwd=project_root, env=env,
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('test-production-client-secret', result.stdout + result.stderr)
+
+    def test_production_settings_fail_clearly_when_google_credentials_are_missing(self):
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        env = os.environ.copy()
+        env.update({
+            'DJANGO_SETTINGS_MODULE': 'ipo_platform.settings_production',
+            'SECRET_KEY': 'test-production-secret-key',
+            'DATABASE_URL': 'postgresql://user:password@localhost/ipo_test',
+            'ALLOWED_HOSTS': 'test.onrender.com',
+            'GOOGLE_CLIENT_ID': '',
+            'GOOGLE_CLIENT_SECRET': '',
+        })
+        result = subprocess.run(
+            [sys.executable, '-c', 'import ipo_platform.settings_production'],
+            cwd=project_root, env=env, capture_output=True, text=True, check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('GOOGLE_CLIENT_ID', result.stderr)
+        self.assertIn('GOOGLE_CLIENT_SECRET', result.stderr)
 
     def test_signup_exposes_independent_google_link_and_light_theme(self):
         response = self.client.get('/signup/')

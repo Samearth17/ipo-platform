@@ -24,7 +24,8 @@ import os
 from dotenv import load_dotenv
 LOG_DIR = BASE_DIR / 'logs'
 LOG_DIR.mkdir(exist_ok=True)
-load_dotenv(BASE_DIR.parent / '.env')
+if os.environ.get('DJANGO_SETTINGS_MODULE') != 'ipo_platform.settings_production':
+    load_dotenv(BASE_DIR.parent / '.env')
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-itpv58mg#r#_nb!0+6(%kal!4kiq$7(fwn+qu_1z4b@*@ezgk6')
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -77,11 +78,13 @@ ACCOUNT_LOGIN_METHODS = {'username', 'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*']
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 SOCIALACCOUNT_LOGIN_ON_GET = False
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'SCOPE': ['openid', 'email', 'profile'],
         'AUTH_PARAMS': {'access_type': 'online'},
-        'APP': {'client_id': os.environ.get('GOOGLE_CLIENT_ID', ''), 'secret': os.environ.get('GOOGLE_CLIENT_SECRET', ''), 'key': ''},
+        'APP': {'client_id': GOOGLE_CLIENT_ID, 'secret': GOOGLE_CLIENT_SECRET, 'key': ''},
     },
 }
 
