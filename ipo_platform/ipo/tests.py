@@ -3,10 +3,11 @@ import subprocess
 import sys
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
+from django.core import mail
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.contrib.auth.models import User
 from datetime import date
-from .models import IPO
+from .models import IPO, Watchlist
 
 from .analytics.scoring import IPOScorer
 from .prediction import train_and_predict
@@ -266,3 +267,83 @@ class PersonalizationIntegrationTests(TestCase):
         response = self.client.get('/recommendations/?persona=conservative')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'for your <strong>Conservative</strong> strategy')
+
+
+class NotificationPrivacyTests(TestCase):
+    def setUp(self):
+        mail.outbox.clear()
+        self.user1 = User.objects.create_user(
+            username='recipient1', email='recipient1@example.com', password='password123'
+        )
+        self.user2 = User.objects.create_user(
+            username='recipient2', email='recipient2@example.com', password='password123'
+        )
+
+    def test_new_ipo_notification_does_not_expose_multiple_user_emails(self):
+        mail.outbox.clear()
+
+        ipo = IPO.objects.create(
+            company_name='Privacy Alert Co',
+            symbol='PRIV',
+            price_band='100-120',
+            open_date=date.today(),
+            close_date=date.today(),
+            status='UPCOMING',
+            issue_size=100,
+            sector='Technology',
+        )
+
+        # Verify both intended recipients still receive the notification
+        self.assertEqual(len(mail.outbox), 2)
+        outbound_recipients = {msg.to[0] for msg in mail.outbox if msg.to}
+        self.assertEqual(outbound_recipients, {'recipient1@example.com', 'recipient2@example.com'})
+
+        # Verify that a recipient cannot see another recipient's email address in visible headers
+        for msg in mail.outbox:
+            self.assertEqual(len(msg.to), 1)
+            self.assertFalse(msg.cc)
+            recipient = msg.to[0]
+            other_email = 'recipient2@example.com' if recipient == 'recipient1@example.com' else 'recipient1@example.com'
+            self.assertNotIn(other_email, msg.to)
+            self.assertNotIn(other_email, getattr(msg, 'cc', []))
+            self.assertNotIn(other_email, str(msg.message()))
+            self.assertEqual(msg.subject, f"New IPO Alert: {ipo.company_name}")
+            self.assertIn(f"New IPO: {ipo.company_name}", msg.body)
+
+    def test_ipo_update_notification_does_not_expose_multiple_user_emails(self):
+        ipo = IPO.objects.create(
+            company_name='Watched Co',
+            symbol='WTCH',
+            price_band='100-120',
+            open_date=date.today(),
+            close_date=date.today(),
+            status='UPCOMING',
+            issue_size=100,
+            sector='Technology',
+        )
+        w1, _ = Watchlist.objects.get_or_create(user=self.user1)
+        w1.ipos.add(ipo)
+        w2, _ = Watchlist.objects.get_or_create(user=self.user2)
+        w2.ipos.add(ipo)
+
+        mail.outbox.clear()
+
+        ipo.status = 'ONGOING'
+        ipo.save()
+
+        # Verify both intended recipients receive the update notification
+        self.assertEqual(len(mail.outbox), 2)
+        outbound_recipients = {msg.to[0] for msg in mail.outbox if msg.to}
+        self.assertEqual(outbound_recipients, {'recipient1@example.com', 'recipient2@example.com'})
+
+        # Verify that a recipient cannot see another recipient's email address in visible headers
+        for msg in mail.outbox:
+            self.assertEqual(len(msg.to), 1)
+            self.assertFalse(msg.cc)
+            recipient = msg.to[0]
+            other_email = 'recipient2@example.com' if recipient == 'recipient1@example.com' else 'recipient1@example.com'
+            self.assertNotIn(other_email, msg.to)
+            self.assertNotIn(other_email, getattr(msg, 'cc', []))
+            self.assertNotIn(other_email, str(msg.message()))
+            self.assertEqual(msg.subject, f"IPO Update: {ipo.company_name}")
+            self.assertIn(f"Update for {ipo.company_name}", msg.body)
