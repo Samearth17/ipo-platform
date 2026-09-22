@@ -434,7 +434,7 @@ class IPOAnalysisAPI(APIView):
             
             return Response({
                 "analysis": {
-                    "symbol": analysis.symbol,
+                    "symbol": ipo.symbol,
                     "financial_score": analysis.financial_score,
                     "growth_score": analysis.growth_score,
                     "risk_score": analysis.risk_score,
