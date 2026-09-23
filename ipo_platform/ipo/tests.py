@@ -347,3 +347,54 @@ class NotificationPrivacyTests(TestCase):
             self.assertNotIn(other_email, str(msg.message()))
             self.assertEqual(msg.subject, f"IPO Update: {ipo.company_name}")
             self.assertIn(f"Update for {ipo.company_name}", msg.body)
+
+
+class IPOAnalysisAPITests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='apiuser', password='password123')
+        self.client.login(username='apiuser', password='password123')
+        self.ipo = IPO.objects.create(
+            company_name='Analysis Co',
+            symbol='ANLS',
+            price_band='100-120',
+            open_date=date.today(),
+            close_date=date.today(),
+            status='LISTED',
+            listing_price=100,
+            current_price=120,
+            issue_size=100,
+            sector='Technology',
+            roe=15,
+            roa=8,
+            debt_to_equity=0.5,
+            pe_ratio=20,
+            volatility=25,
+            revenue_growth=20,
+        )
+
+    def test_get_ipo_analysis_returns_symbol_and_expected_fields(self):
+        response = self.client.get(f'/api/ipo-analysis/{self.ipo.pk}/')
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertIn('analysis', data)
+        analysis_data = data['analysis']
+
+        self.assertEqual(analysis_data.get('symbol'), 'ANLS')
+
+        expected_fields = [
+            'symbol', 'financial_score', 'growth_score', 'risk_score',
+            'momentum_score', 'valuation_score', 'quality_score',
+            'overall_score', 'percentiles', 'strengths', 'weaknesses',
+            'recommendations',
+        ]
+        for field in expected_fields:
+            self.assertIn(field, analysis_data)
+
+        self.assertIn('rank', data)
+        self.assertIn('total_ipos', data)
+
+    def test_get_ipo_analysis_nonexistent_returns_404(self):
+        response = self.client.get('/api/ipo-analysis/999999/')
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json(), {'error': 'IPO not found'})
